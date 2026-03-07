@@ -1,5 +1,6 @@
 <div align="center">
-<img src="disspair_logo.png" alt="DissPair Logo" width="150"/>
+<img src="disspair_logo.png" alt="DissPair Logo" width="150" />
+
 <h1>⚡ DissPair (Android APK)</h1>
 <p><b>Advanced Bluetooth Classic RFCOMM Auditor & Fuzzer</b></p>
 </div>
