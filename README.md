@@ -1,152 +1,71 @@
 <div align="center">
 
-# 📡 DissPair
+<img src="disspair_logo.png" alt="DissPair Logo" width="160"/>
 
-### Bluetooth RFCOMM Auditor
+# DissPair
 
-**Bluetooth Classic security research tool targeting unauthenticated RFCOMM port exposure and resource exhaustion vulnerabilities.**
+### Bluetooth RFCOMM Security Auditor
 
-[![Platform](https://img.shields.io/badge/platform-Android-blue?style=flat-square)](.)
-[![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
-[![Framework](https://img.shields.io/badge/framework-Kivy-cyan?style=flat-square)](.)
+**A specialised security research tool for mapping and testing Bluetooth Classic RFCOMM layer vulnerabilities — unauthenticated port exposure and resource exhaustion attacks.**
+
 [![CVE](https://img.shields.io/badge/CVE-2025--13834%20%7C%202025--13328-red?style=flat-square)](.)
+[![Type](https://img.shields.io/badge/type-Security%20Research-blueviolet?style=flat-square)](.)
+[![Protocol](https://img.shields.io/badge/protocol-Bluetooth%20Classic%20RFCOMM-blue?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
 
 </div>
 
 ---
 
-## 📖 Overview
+## What is DissPair?
 
-DissPair is a highly specialised, pure-Python Android application built using the **Kivy** framework. It is designed for security researchers and hardware auditors to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
+DissPair is a pure-Python Bluetooth security auditing tool that targets the **RFCOMM layer** of Bluetooth Classic. It bypasses the standard Service Discovery Protocol (SDP) entirely, instead directly probing channels 1–30 via raw socket connections to identify unauthenticated, hidden, and vulnerable RFCOMM ports.
 
-Unlike standard Bluetooth tools, DissPair directly interfaces with the Android Baseband via **Java Native Interface (JNI) reflection**. It bypasses SDP (Service Discovery Protocol) to brutally sweep channels 1–30, identifying cloaked, unauthenticated, and vulnerable RFCOMM ports.
+It was built to research and reproduce two vulnerability classes found in Bluetooth Classic firmware:
 
----
-
-## 🗂️ Repository Structure
-
-```
-disspair/
-├── main.py               # Primary Kivy application + Bluetooth baseband logic
-├── buildozer.spec        # Android NDK/SDK compilation constraints + permissions
-├── disspair_logo.png     # App icon, splash screen, and UI branding asset
-├── requirements.txt      # Python build dependencies (Buildozer, Cython 0.29.36)
-└── README.md
-```
-
-> All four files must be present in the same directory before running `buildozer android debug`.
+| CVE | Type | Description |
+|-----|------|-------------|
+| **CVE-2025-13834** | Unauthenticated Exposure | RFCOMM channels accepting connections without pairing |
+| **CVE-2025-13328** | Resource Exhaustion (DoS) | Buffer overflow via oversized RFCOMM payload flood |
 
 ---
 
-## 📥 Installation
+## Choose Your Platform
 
-### Direct Installation (Pre-Built)
+DissPair is available in two independent flavours. Pick the branch for your environment:
 
-1. Download `disspair.apk` from the [Releases](../../releases) tab
-2. On your Android device, allow your browser or file manager to **Install unknown apps**
-3. Open the app and grant the requested **Location** and **Nearby Devices** permissions
-   > These permissions are mandatory for Bluetooth scanning on Android 12+
+<br>
 
-### Build from Source
+<div align="center">
 
-#### 1. Install System Dependencies
+| | Platform | Branch | Best For |
+|--|----------|--------|----------|
+| 📱 | **Android** | [`APK`](../../tree/APK) | Field auditing — scan and attack from your phone |
+| 🐉 | **Kali Linux** | [`CLI`](../../tree/CLI) | Desktop research — terminal-based, zero dependencies |
 
-> Ubuntu, Debian, or Kali Linux are strongly recommended.
+</div>
 
-```bash
-sudo apt update
-sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool \
-  pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake \
-  libffi-dev libssl-dev
-```
+<br>
 
-#### 2. Set Up Python Virtual Environment & Dependencies
-
-> ⚠️ **Critical:** To avoid conflicting with your system's default Python packages, build inside an isolated virtual environment. Buildozer relies on Cython to translate Python code into Android-native C code. You **must** use Cython `0.29.36` — newer versions (3.x) cause `pyjnius` compilation to fail with legacy `long` variable errors.
-
-```bash
-# Create a virtual environment
-python3 -m venv disspair_env
-
-# Activate it
-source disspair_env/bin/activate
-
-# Install all dependencies from requirements.txt
-pip install -r requirements.txt
-```
-
-> 💡 Ensure your virtual environment is active — you'll see `(disspair_env)` in your terminal prompt — whenever you run `buildozer`.
-
-#### 3. Export Java Path
-
-```bash
-export JAVA_HOME=$(ls -d /usr/lib/jvm/java-17-openjdk* | head -n 1)
-export PATH=$JAVA_HOME/bin:$PATH
-```
-
-#### 4. Compile
-
-```bash
-buildozer android debug
-```
-
-> First run will download the Android SDK and NDK (several GB). Allow **15–30 minutes** depending on your connection and CPU.
-
-The compiled APK will be output to `bin/`.
+> Each branch contains its own full `README.md` with setup instructions, build steps, and usage guide.
 
 ---
 
-## ⚔️ Usage Guide
+## How It Works
 
-### 1 — Scan for Targets
-
-Tap **SCAN CLASSIC** to actively hunt for BR/EDR devices in range.
-
-> Target devices must be in **discoverable / pairing mode** to appear during an active classic scan.
-
-### 2 — Enumerate Attack Surface
-
-Tap **ENUMERATE** next to your target device.
-
-DissPair ignores SDP broadcasts and physically probes **channels 1 through 30**, mapping which ports require pairing and which are left **dangerously unauthenticated**.
-
-### 3 — Silent Verification
-
-Tap **CONNECT** to establish a silent L2CAP/RFCOMM link. This proves the port is actively listening without disrupting the target.
-
-### 4 — Linux TTY Emulation
-
-Tap **Linux TTY** to connect and blast the target with standard Linux ModemManager AT commands (`ATZ`, `AT+CGMI`). This simulates the crash behaviour seen when vulnerable devices are connected to a Linux host.
-
-### 5 — Resource Exhaustion Flood
-
-- Adjust the **Payload Slider** (64 B → 64 KB)
-- Tap **FLOOD** to execute a sustained, maximum-rate data stream into the target's buffer
-
-Tests for watchdog panics and resource starvation limits (CVE-2025-13328 vector).
-
----
-
-## 🔬 How It Works
+Standard Bluetooth tools rely on SDP to discover services. DissPair ignores SDP completely and physically attempts an RFCOMM connection on every channel number:
 
 ```
-Discovery    →  Android startDiscovery (Classic BR/EDR)
-               ↓
-Channel Sweep →  createInsecureRfcommSocket(ch) × channels 1–30
-               ↓  No SDP. No pairing. Raw connect attempt per channel.
-Open Ports   →  Displayed with FLOOD button
-               ↓
-Flood        →  Continuous write loop until device disconnects
-               ↓
-Crash Signal →  Disconnection mid-flood = CVE-2025-13328 triggered
+Scan  →  Discover nearby Classic BT devices
+  ↓
+Sweep →  Connect to channels 1–30 directly (no SDP, no pairing required)
+  ↓
+Map   →  Identify which channels are open and accepting connections
+  ↓
+Flood →  Send oversized payloads to test for CVE-2025-13328 buffer overflow
 ```
 
-**Key design decisions:**
-
-- **No SDP** — SDP is bypassed entirely. Channels are probed by raw connect, not by querying the service registry. This finds hidden/unclaimed ports that SDP would never reveal.
-- **Insecure sockets first** — `createInsecureRfcommSocket` is tried before `createRfcommSocket`, ensuring unauthenticated access is tested without triggering pairing dialogs.
-- **ACL cache flush** — After a target crash/reboot, a 4-attempt retry ladder with JNI reflection clears Android's stale ACL cache so re-enumeration works without toggling Bluetooth.
+This approach finds **cloaked ports** that SDP would never reveal, and confirms unauthenticated access at the socket level rather than relying on service advertisements.
 
 ---
 
@@ -154,10 +73,10 @@ Crash Signal →  Disconnection mid-flood = CVE-2025-13328 triggered
 
 DissPair is intended **strictly for authorised security auditing, academic research, and the testing of devices you own.**
 
-Exploiting RFCOMM vulnerabilities on devices, vehicles, or infrastructure **without explicit written consent is illegal** in most jurisdictions. The developers and contributors assume **no liability** for misuse, bricked hardware, or unauthorised access resulting from this tool.
+Exploiting Bluetooth vulnerabilities on devices, vehicles, or infrastructure **without explicit written consent is illegal** in most jurisdictions. The developers and contributors assume **no liability** for misuse, bricked hardware, or unauthorised access resulting from this tool.
 
 ---
 
 <div align="center">
-<sub>Built for security research · Classic BT only · Requires Android BLUETOOTH_SCAN permission</sub>
+<sub>Bluetooth Classic only &nbsp;·&nbsp; RFCOMM channels 1–30 &nbsp;·&nbsp; CVE-2025-13834 / CVE-2025-13328</sub>
 </div>
