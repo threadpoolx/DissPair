@@ -17,8 +17,8 @@ except ImportError:
     PYBLUEZ_LOADED = False
     print("\n[\033[91m!\033[0m] \033[91mPyBluez is missing.\033[0m")
     print("    Run the following to install requirements on Kali:")
-    print("    sudo apt update && sudo apt install -y python3-bluez bluetooth libbluetooth-dev")
-    print("    pip install pybluez2 bleak --break-system-packages\n")
+    print("    sudo apt update && sudo apt install -y bluetooth libbluetooth-dev")
+    print("    pip install pybluez2 --break-system-packages\n")
     sys.exit(1)
 
 try:
@@ -59,7 +59,7 @@ class DissPairCLI:
         print(f"{C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{W}")
         print(f" {C}█▀▀▄ █ ▄▀▀ ▄▀▀   {R}█▀▀▄ ▄▀▄ █ █▀▀▄{W}")
         print(f" {C}█  █ █ ▀▀▄ ▀▀▄ {D}━━{R} █▄▄▀ █▀█ █ █▄▄▀{W}   {D}| KALI LINUX EDITION{W}")
-        print(f" {C}▀▀▀  ▀ ▀▀  ▀▀    {R}█    ▀ ▀ ▀ ▀  ▀▄{W}  {D} | v1.83 (Native Sockets){W}")
+        print(f" {C}▀▀▀  ▀ ▀▀  ▀▀    {R}█    ▀ ▀ ▀ ▀  ▀▄{W}  {D} | v1.82 (L2CAP Audio Bypass){W}")
         print(f"{C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{W}\n")
 
     def input_prompt(self, text):
@@ -244,7 +244,6 @@ class DissPairCLI:
                 sock_insec.settimeout(6.0) 
                 
                 try:
-                    # Native Python sockets apply setsockopt cleanly to the Linux kernel
                     opt = struct.pack("BB", BT_SECURITY_LOW, 0)
                     if hasattr(sock_insec, 'setsockopt'):
                         sock_insec.setsockopt(SOL_BLUETOOTH, BT_SECURITY, opt)
