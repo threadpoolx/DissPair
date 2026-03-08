@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ DissPair CLI — Kali Edition
+#    DissPair CLI — Kali Edition
 
 ### Advanced Bluetooth Classic RFCOMM Auditor & Fuzzer
 
@@ -60,7 +60,7 @@ pip install pybluez2 bleak
 
 ---
 
-## 🚀 Usage
+##  Usage
 
 > ⚠️ Raw RFCOMM socket manipulation requires elevated kernel privileges. You must run as `root`. Ensure your virtual environment is active before invoking `sudo`.
 
