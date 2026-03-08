@@ -31,10 +31,11 @@ disspair/
 ├── main.py               # Primary Kivy application + Bluetooth baseband logic
 ├── buildozer.spec        # Android NDK/SDK compilation constraints + permissions
 ├── disspair_logo.png     # App icon, splash screen, and UI branding asset
+├── requirements.txt      # Python build dependencies (Buildozer, Cython 0.29.36)
 └── README.md
 ```
 
-> All three files must be present in the same directory before running `buildozer android debug`.
+> All four files must be present in the same directory before running `buildozer android debug`.
 
 ---
 
@@ -60,14 +61,22 @@ sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool \
   libffi-dev libssl-dev
 ```
 
-#### 2. Install Python Dependencies
+#### 2. Set Up Python Virtual Environment & Dependencies
 
-> ⚠️ **Critical:** You **must** use Cython `0.29.36`. Newer versions (3.x) cause `pyjnius` compilation to fail with legacy `long` variable errors.
+> ⚠️ **Critical:** To avoid conflicting with your system's default Python packages, build inside an isolated virtual environment. Buildozer relies on Cython to translate Python code into Android-native C code. You **must** use Cython `0.29.36` — newer versions (3.x) cause `pyjnius` compilation to fail with legacy `long` variable errors.
 
 ```bash
-pip install buildozer
-pip install "Cython==0.29.36" wheel setuptools --break-system-packages
+# Create a virtual environment
+python3 -m venv disspair_env
+
+# Activate it
+source disspair_env/bin/activate
+
+# Install all dependencies from requirements.txt
+pip install -r requirements.txt
 ```
+
+> 💡 Ensure your virtual environment is active — you'll see `(disspair_env)` in your terminal prompt — whenever you run `buildozer`.
 
 #### 3. Export Java Path
 
