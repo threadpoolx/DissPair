@@ -4,7 +4,7 @@
 
 # DissPair
 
-### Bluetooth RFCOMM Security Auditor
+### Bluetooth Security Automation Tool
 
 **A specialised security research tool for mapping and testing Bluetooth Classic RFCOMM layer vulnerabilities — unauthenticated port exposure and resource exhaustion attacks.**
 
