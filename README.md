@@ -74,7 +74,7 @@ sudo $(which python3) disspair_kali.py
 
 ---
 
-## ⚔️ Attack Workflow
+##   Attack Workflow
 
 ### Step 1 — Target Acquisition
 
@@ -96,7 +96,7 @@ DissPair bypasses SDP and brute-forces channels 1–30. If the target is paired,
 
 ---
 
-## 🔧 Troubleshooting
+##   Troubleshooting
 
 If the script fails to scan or reports `No default Bluetooth adapter found`, your host radio is likely soft-blocked or asleep. Run the following to wake it up:
 
