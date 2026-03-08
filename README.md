@@ -30,7 +30,7 @@ Like the Android app, it bypasses SDP entirely and physically probes RFCOMM chan
 
 ```
 disspair-cli/
-├── disspair_kali.py      # Main CLI tool — all logic in one file
+├── disspair.py      # Main CLI tool — all logic in one file
 └── README.md
 ```
 
@@ -76,7 +76,7 @@ git clone --branch CLI --single-branch https://github.com/YOUR_USERNAME/disspair
 cd disspair
 
 # Run — no virtual environment or pip install needed
-sudo python3 disspair_kali.py scan
+sudo python3 disspair.py
 ```
 
 ---
@@ -90,7 +90,7 @@ All commands require `sudo` — raw Bluetooth sockets need `CAP_NET_RAW`.
 Discover nearby Classic Bluetooth (BR/EDR) devices:
 
 ```bash
-sudo python3 disspair_kali.py scan
+sudo python3 disspair.py
 ```
 
 > Target devices must be in **discoverable mode** to appear. Scan takes ~10 seconds.
@@ -102,7 +102,7 @@ sudo python3 disspair_kali.py scan
 Probe channels 1–30 on a target without SDP and without pairing:
 
 ```bash
-sudo python3 disspair_kali.py sweep AA:BB:CC:DD:EE:FF
+sudo python3 disspair.py
 ```
 
 The sweep runs an L2CAP reachability check first (`l2ping`), then connects sequentially to each channel. Open channels are printed with their ready-to-run flood commands.
@@ -116,7 +116,7 @@ The sweep runs an L2CAP reachability check first (`l2ping`), then connects seque
 
 ```bash
 # Example with verbose output and faster timeout
-sudo python3 disspair_kali.py sweep AA:BB:CC:DD:EE:FF --verbose --timeout 1.5
+sudo python3 disspair.py
 ```
 
 > **Why sequential?** Parallel RFCOMM connects over a single HCI adapter cause HCI congestion and bogus results. Sequential sweep (~2s × 30 channels = ~1 min) is slower but accurate.
@@ -128,7 +128,7 @@ sudo python3 disspair_kali.py sweep AA:BB:CC:DD:EE:FF --verbose --timeout 1.5
 Send a sustained oversized payload stream to an open channel to test for CVE-2025-13328:
 
 ```bash
-sudo python3 disspair_kali.py flood AA:BB:CC:DD:EE:FF 3
+sudo python3 disspair.py
 ```
 
 **Options:**
