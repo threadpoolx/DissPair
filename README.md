@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📡 DissPair
+#   DissPair APK
 
 ### Bluetooth RFCOMM Auditor
 
@@ -18,7 +18,7 @@
 
 ## 📖 Overview
 
-DissPair is a highly specialised, pure-Python Android application built using the **Kivy** framework. It is designed for security researchers and hardware auditors to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
+DissPair APK is a highly specialised, pure-Python Android application built using the **Kivy** framework. It is designed for security researchers and hardware auditors to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
 
 Unlike standard Bluetooth tools, DissPair directly interfaces with the Android Baseband via **Java Native Interface (JNI) reflection**. It bypasses SDP (Service Discovery Protocol) to brutally sweep channels 1–30, identifying cloaked, unauthenticated, and vulnerable RFCOMM ports.
 
@@ -39,7 +39,7 @@ disspair/
 
 ---
 
-## 📥 Installation
+##   Installation
 
 ### Direct Installation (Pre-Built)
 
@@ -76,7 +76,7 @@ source disspair_env/bin/activate
 pip install -r requirements.txt
 ```
 
-> 💡 Ensure your virtual environment is active — you'll see `(disspair_env)` in your terminal prompt — whenever you run `buildozer`.
+>   Ensure your virtual environment is active — you'll see `(disspair_env)` in your terminal prompt — whenever you run `buildozer`.
 
 #### 3. Export Java Path
 
@@ -97,7 +97,7 @@ The compiled APK will be output to `bin/`.
 
 ---
 
-## ⚔️ Usage Guide
+##   Usage Guide
 
 ### 1 — Scan for Targets
 
@@ -128,7 +128,7 @@ Tests for watchdog panics and resource starvation limits (CVE-2025-13328 vector)
 
 ---
 
-## 🔬 How It Works
+##   How It Works
 
 ```
 Discovery    →  Android startDiscovery (Classic BR/EDR)
