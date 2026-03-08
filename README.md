@@ -68,7 +68,7 @@ pip install pybluez2 bleak
 source disspair_env/bin/activate
 
 # Run the tool
-sudo $(which python3) disspair_kali.py
+sudo $(which python3) disspair.py
 ```
 
 ---
