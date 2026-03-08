@@ -16,7 +16,7 @@
 
 ---
 
-## 📖 Overview
+##   Overview
 
 DissPair APK is a highly specialised, pure-Python Android application built using the **Kivy** framework. It is designed for security researchers and hardware auditors to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
 
@@ -24,7 +24,7 @@ Unlike standard Bluetooth tools, DissPair directly interfaces with the Android B
 
 ---
 
-## 🗂️ Repository Structure
+##   Repository Structure
 
 ```
 disspair/
