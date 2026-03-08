@@ -4,7 +4,7 @@
 
 ### Advanced Bluetooth Classic RFCOMM Auditor & Fuzzer
 
-[![Platform](https://img.shields.io/badge/platform-Kali%20Linux%20%7C%20Windows-blueviolet?style=flat-square)](.)
+[![Platform](https://img.shields.io/badge/platform-Kali%20Linux%20%7C%20Debian%20%7C%20Ubuntu-blueviolet?style=flat-square)](.)
 [![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
 [![CVE](https://img.shields.io/badge/CVE-2025--13834%20%7C%202025--13328-red?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
@@ -21,13 +21,14 @@ While the Android APK relies on Java Reflection, this Linux CLI directly manipul
 
 ---
 
-## 💻 OS Compatibility & Limitations
+## 💻 Supported Platforms
 
 | OS | Status | Notes |
 |----|--------|-------|
-| 🐧 **Kali / Ubuntu / Debian** | ✅ Fully Supported | Full kernel socket access, `BT_SECURITY_LOW` downgrade, active BR/EDR scanning, automated audio-sink severing |
-| 🪟 **Windows 10 / 11** | ⚠️ Limited | Raw scanning and baseband manipulation are blocked. Targets must be entered manually or loaded via the PowerShell paired-devices hook |
-| 🖥️ **Virtual Machines** | ⚠️ Restricted | Built-in laptop Bluetooth cannot be passed to a VM. You **must** use a **USB Bluetooth adapter** and pass it through (`VM → Removable Devices → Connect`) |
+| 🐧 **Kali Linux** | ✅ Recommended | Full kernel socket access, `BT_SECURITY_LOW` downgrade, active BR/EDR scanning, automated audio-sink severing |
+| 🐧 **Ubuntu / Debian** | ✅ Supported | Same capabilities as Kali — ensure BlueZ is installed |
+
+> **Virtual Machines:** Built-in laptop Bluetooth cannot be passed to a VM. You **must** use a **USB Bluetooth adapter** and pass it through (`VM → Removable Devices → Connect`).
 
 ---
 
@@ -68,7 +69,7 @@ pip install pybluez2 bleak
 source disspair_env/bin/activate
 
 # Run the tool
-sudo $(which python3) disspair.py
+sudo $(which python3) disspair_kali.py
 ```
 
 ---
