@@ -13,7 +13,7 @@
 
 ---
 
-## 📖 Overview
+##   Overview
 
 DissPair CLI is a highly specialised Python command-line tool designed for security researchers to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
 
@@ -21,7 +21,7 @@ While the Android APK relies on Java Reflection, this Linux CLI directly manipul
 
 ---
 
-## 💻 Supported Platforms
+##   Supported Platforms
 
 | OS | Status | Notes |
 |----|--------|-------|
@@ -32,7 +32,7 @@ While the Android APK relies on Java Reflection, this Linux CLI directly manipul
 
 ---
 
-## 🛠️ Installation & Setup
+##   Installation & Setup
 
 ### 1. Install System Dependencies
 
