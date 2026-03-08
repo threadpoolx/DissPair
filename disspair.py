@@ -5,12 +5,9 @@ import sys
 import time
 import threading
 import subprocess
-import platform
 import socket
 import struct
 import re
-
-IS_WINDOWS = platform.system() == "Windows"
 
 # --- DEPENDENCY CHECK ---
 try:
@@ -18,12 +15,11 @@ try:
     PYBLUEZ_LOADED = True
 except ImportError:
     PYBLUEZ_LOADED = False
-    if not IS_WINDOWS:
-        print("\n[\033[91m!\033[0m] \033[91mPyBluez is missing.\033[0m")
-        print("    Run the following to install requirements on Kali:")
-        print("    sudo apt update && sudo apt install -y bluetooth libbluetooth-dev")
-        print("    pip install pybluez2 --break-system-packages\n")
-        sys.exit(1)
+    print("\n[\033[91m!\033[0m] \033[91mPyBluez is missing.\033[0m")
+    print("    Run the following to install requirements on Kali:")
+    print("    sudo apt update && sudo apt install -y python3-bluez bluetooth libbluetooth-dev")
+    print("    pip install pybluez2 bleak --break-system-packages\n")
+    sys.exit(1)
 
 try:
     import asyncio
@@ -56,15 +52,14 @@ class DissPairCLI:
         self.payload_size = 2048
 
     def clear(self):
-        os.system('cls' if IS_WINDOWS else 'clear')
+        os.system('clear')
 
     def banner(self):
         self.clear()
-        env_text = "WINDOWS EDITION" if IS_WINDOWS else "KALI LINUX EDITION"
         print(f"{C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{W}")
         print(f" {C}█▀▀▄ █ ▄▀▀ ▄▀▀   {R}█▀▀▄ ▄▀▄ █ █▀▀▄{W}")
-        print(f" {C}█  █ █ ▀▀▄ ▀▀▄ {D}━━{R} █▄▄▀ █▀█ █ █▄▄▀{W}   {D}| {env_text}{W}")
-        print(f" {C}▀▀▀  ▀ ▀▀  ▀▀    {R}█    ▀ ▀ ▀ ▀  ▀▄{W}  {D} | v1.82 (L2CAP Audio Bypass){W}")
+        print(f" {C}█  █ █ ▀▀▄ ▀▀▄ {D}━━{R} █▄▄▀ █▀█ █ █▄▄▀{W}   {D}| KALI LINUX EDITION{W}")
+        print(f" {C}▀▀▀  ▀ ▀▀  ▀▀    {R}█    ▀ ▀ ▀ ▀  ▀▄{W}  {D} | v1.83 (Native Sockets){W}")
         print(f"{C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{W}\n")
 
     def input_prompt(self, text):
@@ -72,29 +67,18 @@ class DissPairCLI:
 
     def get_rfcomm_socket(self):
         """Cross-platform NATIVE socket generation (Bypasses buggy PyBluez wrappers)"""
-        if IS_WINDOWS:
-            try:
-                return socket.socket(socket.AF_BTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-            except AttributeError:
-                print(f"\n\n[{R}FATAL OS ERROR{W}]")
-                print(f"[{R}!{W}] Your Python distribution for Windows was not compiled with Bluetooth socket support (Missing AF_BTH).")
-                print(f"[{Y}!{W}] Furthermore, Windows actively blocks low-level RFCOMM bruteforcing at the kernel level.")
-                print(f"[{G}*{W}] For Bluetooth hardware auditing, you MUST run this tool on native Linux (e.g., Kali/Ubuntu).")
-                sys.exit(1)
-        else:
-            try:
-                # Python 3 Native Linux Bluetooth Socket (Direct Kernel Access)
-                return socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-            except AttributeError:
-                # Absolute fallback if AF_BLUETOOTH is somehow missing from Python build
-                return bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        try:
+            # Python 3 Native Linux Bluetooth Socket (Direct Kernel Access)
+            return socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+        except AttributeError:
+            # Absolute fallback if AF_BLUETOOTH is somehow missing from Python build
+            return bluetooth.BluetoothSocket(bluetooth.RFCOMM)
 
     # ─── SCANNING ─────────────────────────────────────────────────────────────
 
     def scan_classic(self):
-        if IS_WINDOWS or not hasattr(bluetooth, 'discover_devices'):
-            print(f"[{R}!{W}] Windows blocks raw Classic scans from the terminal.")
-            print(f"    Please use Option 3 (Load Paired) or Option 4 (Manual Entry).")
+        if not hasattr(bluetooth, 'discover_devices'):
+            print(f"[{R}!{W}] 'discover_devices' is missing from the bluetooth library.")
             time.sleep(3)
             return
 
@@ -128,34 +112,7 @@ class DissPairCLI:
         asyncio.run(self._scan_ble_async())
         time.sleep(2)
 
-    def _list_paired_windows(self):
-        print(f"[{C}*{W}] Fetching local paired devices via Windows PowerShell...")
-        try:
-            ps_cmd = 'Get-PnpDevice -Class Bluetooth | Where-Object { $_.InstanceId -match "DEV_" } | Select-Object Name, InstanceId'
-            res = subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True)
-            
-            count = 0
-            for line in res.stdout.split('\n'):
-                if 'DEV_' in line:
-                    match = re.search(r'DEV_([0-9A-F]{12})', line, re.IGNORECASE)
-                    if match:
-                        raw_mac = match.group(1).upper()
-                        mac = ':'.join(raw_mac[i:i+2] for i in range(0, 12, 2))
-                        name_part = line.split('BTH')[0].strip()
-                        if not name_part: name_part = "Windows Paired Device"
-                            
-                        self._add_device(mac, name_part, "PAIRED")
-                        count += 1
-            print(f"[{G}+{W}] Found {count} paired devices.")
-        except Exception as e:
-            print(f"[{R}-{W}] Failed to fetch Windows paired devices: {e}")
-        time.sleep(3)
-
     def list_paired(self):
-        if IS_WINDOWS:
-            self._list_paired_windows()
-            return
-
         print(f"[{C}*{W}] Fetching local paired devices from BlueZ...")
         try:
             res = subprocess.run(['bluetoothctl', 'devices', 'Paired'], capture_output=True, text=True)
@@ -244,19 +201,18 @@ class DissPairCLI:
                 target_is_paired = True
                 break
 
-        if not IS_WINDOWS:
-            # Double check via bluetoothctl in case user entered MAC manually
-            try:
-                res = subprocess.run(['bluetoothctl', 'info', self.target_mac], capture_output=True, text=True)
-                if "Paired: yes" in res.stdout:
-                    target_is_paired = True
-            except: pass
+        # Double check via bluetoothctl in case user entered MAC manually
+        try:
+            res = subprocess.run(['bluetoothctl', 'info', self.target_mac], capture_output=True, text=True)
+            if "Paired: yes" in res.stdout:
+                target_is_paired = True
+        except: pass
 
-            if target_is_paired:
-                print(f"[{C}*{W}] Target is Paired. Releasing Kali's active audio sinks (A2DP/HFP)...")
-                print(f"{D}    (If earbuds are connected to audio, they reject new RFCOMM channels){W}\n")
-                subprocess.run(['bluetoothctl', 'disconnect', self.target_mac], capture_output=True)
-                time.sleep(2.0) # Give baseband time to completely drop the ACL link
+        if target_is_paired:
+            print(f"[{C}*{W}] Target is Paired. Releasing Kali's active audio sinks (A2DP/HFP)...")
+            print(f"{D}    (If earbuds are connected to audio, they reject new RFCOMM channels){W}\n")
+            subprocess.run(['bluetoothctl', 'disconnect', self.target_mac], capture_output=True)
+            time.sleep(2.0) # Give baseband time to completely drop the ACL link
 
         self.open_channels = []
         last_os_error = None
@@ -286,15 +242,16 @@ class DissPairCLI:
                 # UNPAIRED: Try Insecure first
                 sock_insec = self.get_rfcomm_socket()
                 sock_insec.settimeout(6.0) 
-                if not IS_WINDOWS:
-                    try:
-                        opt = struct.pack("BB", BT_SECURITY_LOW, 0)
-                        if hasattr(sock_insec, 'setsockopt'):
-                            sock_insec.setsockopt(SOL_BLUETOOTH, BT_SECURITY, opt)
-                        elif hasattr(sock_insec, '_sock') and hasattr(sock_insec._sock, 'setsockopt'):
-                            sock_insec._sock.setsockopt(SOL_BLUETOOTH, BT_SECURITY, opt)
-                    except Exception:
-                        pass
+                
+                try:
+                    # Native Python sockets apply setsockopt cleanly to the Linux kernel
+                    opt = struct.pack("BB", BT_SECURITY_LOW, 0)
+                    if hasattr(sock_insec, 'setsockopt'):
+                        sock_insec.setsockopt(SOL_BLUETOOTH, BT_SECURITY, opt)
+                    elif hasattr(sock_insec, '_sock') and hasattr(sock_insec._sock, 'setsockopt'):
+                        sock_insec._sock.setsockopt(SOL_BLUETOOTH, BT_SECURITY, opt)
+                except Exception:
+                    pass
 
                 try:
                     sock_insec.connect((self.target_mac, ch))
@@ -395,7 +352,7 @@ class DissPairCLI:
         """Creates the socket with the correct security level based on enumeration phase"""
         sock = self.get_rfcomm_socket()
         sock.settimeout(6.0)
-        if c_type == "Unpaired" and not IS_WINDOWS:
+        if c_type == "Unpaired":
             try:
                 opt = struct.pack("BB", BT_SECURITY_LOW, 0)
                 if hasattr(sock, 'setsockopt'):
@@ -486,10 +443,10 @@ class DissPairCLI:
             
             t_str = f"{G}{self.target_name} ({self.target_mac}){W}" if self.target_mac else f"{D}None{W}"
             
-            print(f"    {C}1.{W} Scan Classic BR/EDR (Linux Only)")
+            print(f"    {C}1.{W} Scan Classic BR/EDR")
             print(f"    {C}2.{W} Scan BLE (Radar Only)")
-            print(f"    {C}3.{W} Load Local Paired Devices (Windows/Linux)")
-            print(f"    {C}4.{W} Enter Target MAC Manually (Windows/Linux)\n")
+            print(f"    {C}3.{W} Load Local Paired Devices")
+            print(f"    {C}4.{W} Enter Target MAC Manually\n")
             
             print(f"    {C}5.{W} Select Target       [ Current: {t_str} ]")
             print(f"    {C}6.{W} Enumerate Target    [ Ports Open: {len(self.open_channels)} ]")
