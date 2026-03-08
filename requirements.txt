@@ -1,0 +1,4 @@
+buildozer
+Cython==0.29.36
+wheel
+setuptools
