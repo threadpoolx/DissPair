@@ -4,9 +4,9 @@
 
 # DissPair
 
-### Bluetooth Security Automation Tool
+### Bluetooth Security Toolkit
 
-**A specialised security research tool for mapping and testing Bluetooth Classic RFCOMM layer vulnerabilities — unauthenticated port exposure and resource exhaustion attacks.**
+**A specialised security research tool for mapping and testing Bluetooth Classic and BLE-related vulnerabilities.**
 
 [![CVE](https://img.shields.io/badge/CVE-2025--13834%20%7C%202025--13328-red?style=flat-square)](.)
 [![Type](https://img.shields.io/badge/type-Security%20Research-blueviolet?style=flat-square)](.)
