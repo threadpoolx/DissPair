@@ -363,7 +363,7 @@ class DissPairCLI:
         return sock
 
     def _action_connect(self, ch, c_type):
-        print(f"\n[{C}*{W}] Establishing silent L2CAP/RFCOMM link to Ch {ch}...")
+        print(f"\n[{C}*{W}] Establishing link to Ch {ch}...")
         sock = self._create_attack_socket(c_type)
         try:
             sock.connect((self.target_mac, ch))
