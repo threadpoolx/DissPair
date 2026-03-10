@@ -194,14 +194,13 @@ class DissPairCLI:
         print(f"[{C}*{W}] Commencing RFCOMM Bruteforce on {self.target_mac}...")
         print(f"{D}    Bypassing SDP. Testing channels 1-30 sequentially.{W}\n")
         
-        # --- NEW LOGIC: Check if Paired & Sever Audio Streams ---
         target_is_paired = False
         for d in self.devices:
             if d['mac'] == self.target_mac and d['type'] == 'PAIRED':
                 target_is_paired = True
                 break
 
-        # Double check via bluetoothctl in case user entered MAC manually
+        # Double check via bluetoothctl in case the user entered the MAC manually
         try:
             res = subprocess.run(['bluetoothctl', 'info', self.target_mac], capture_output=True, text=True)
             if "Paired: yes" in res.stdout:
