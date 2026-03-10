@@ -354,7 +354,7 @@ class DissPairApp(App):
         )
         name_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
         tag_lbl = Label(
-            text="[color=44445A]Bluetooth RFCOMM Auditor  v1.72[/color]",
+            text="[color=44445A]Bluetooth Security Toolkit [/color]",
             markup=True, font_size='10sp', halign='left', valign='top'
         )
         tag_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
@@ -458,7 +458,7 @@ class DissPairApp(App):
         content.add_widget(splash_name)
 
         splash_tag = Label(
-            text="[color=44445A]Bluetooth RFCOMM Auditor[/color]",
+            text="[color=44445A]Bluetooth Security Toolkit[/color]",
             markup=True, font_size='13sp', halign='center', valign='middle',
             size_hint_y=None, height=dp(24)
         )
@@ -837,8 +837,7 @@ class DissPairApp(App):
             
             out_stream = sock.getOutputStream()
             
-            # Kali Linux's ModemManager aggressively sends these AT commands immediately
-            # upon creating a /dev/rfcomm0 serial port. This triggers the firmware bug instantly.
+
             kali_noise = [
                 b"AT\r\n", b"ATZ\r\n", b"AT+CGMI\r\n", 
                 b"AT+CMEE=1\r\n", b"AT+GMM\r\n", b"AT+GMR\r\n"
@@ -939,7 +938,7 @@ class DissPairApp(App):
                 except: pass
                 self.active_socket = None
                 
-            # Reset UI back to manual verification stage
+            # Reset UI back to the manual verification stage
             def reset_btn(dt):
                 btn.text = "CONNECT"
                 btn.bg_color = (0.04, 0.40, 0.50, 1)
@@ -1041,3 +1040,4 @@ class DissPairApp(App):
 
 if __name__ == '__main__':
     DissPairApp().run()
+
