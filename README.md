@@ -9,7 +9,6 @@
 [![Platform](https://img.shields.io/badge/platform-Android-blue?style=flat-square)](.)
 [![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
 [![Framework](https://img.shields.io/badge/framework-Kivy-cyan?style=flat-square)](.)
-[![CVE](https://img.shields.io/badge/CVE-2025--13834%20%7C%202025--13328-red?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
 
 </div>
