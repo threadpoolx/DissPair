@@ -2,9 +2,9 @@
 
 #   DissPair APK
 
-### Bluetooth RFCOMM Auditor
+### Bluetooth Security Toolkit
 
-**Bluetooth Classic security research tool targeting unauthenticated RFCOMM port exposure and resource exhaustion vulnerabilities.**
+**Bluetooth Security toolkit targeting various Bluetooth Classic and BLE vulnerabilities.**
 
 [![Platform](https://img.shields.io/badge/platform-Android-blue?style=flat-square)](.)
 [![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
@@ -18,9 +18,9 @@
 
 ##   Overview
 
-DissPair APK is a highly specialised, pure-Python Android application built using the **Kivy** framework. It is designed for security researchers and hardware auditors to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
+DissPair APK is a highly specialised, pure-Python Android application built using the **Kivy** framework. It is designed for security researchers and hardware auditors to map, test, and exploit Bluetooth Classic and BLE vulnerabilities.
 
-Unlike standard Bluetooth tools, DissPair directly interfaces with the Android Baseband via **Java Native Interface (JNI) reflection**. It bypasses SDP (Service Discovery Protocol) to brutally sweep channels 1–30, identifying cloaked, unauthenticated, and vulnerable RFCOMM ports.
+Unlike standard Bluetooth tools, DissPair directly interfaces with the Android Baseband via **Java Native Interface (JNI) reflection**.
 
 ---
 
@@ -142,22 +142,16 @@ Flood        →  Continuous write loop until device disconnects
 Crash Signal →  Disconnection mid-flood = CVE-2025-13328 triggered
 ```
 
-**Key design decisions:**
-
-- **No SDP** — SDP is bypassed entirely. Channels are probed by raw connect, not by querying the service registry. This finds hidden/unclaimed ports that SDP would never reveal.
-- **Insecure sockets first** — `createInsecureRfcommSocket` is tried before `createRfcommSocket`, ensuring unauthenticated access is tested without triggering pairing dialogs.
-- **ACL cache flush** — After a target crash/reboot, a 4-attempt retry ladder with JNI reflection clears Android's stale ACL cache so re-enumeration works without toggling Bluetooth.
-
 ---
 
 ## ⚠️ Disclaimer
 
 DissPair is intended **strictly for authorised security auditing, academic research, and the testing of devices you own.**
 
-Exploiting RFCOMM vulnerabilities on devices, vehicles, or infrastructure **without explicit written consent is illegal** in most jurisdictions. The developers and contributors assume **no liability** for misuse, bricked hardware, or unauthorised access resulting from this tool.
+Exploiting vulnerabilities on devices, vehicles, or infrastructure **without explicit written consent is illegal** in most jurisdictions. The developers and contributors assume **no liability** for misuse, bricked hardware, or unauthorised access resulting from this tool.
 
 ---
 
 <div align="center">
-<sub>Built for security research · Classic BT only · Requires Android BLUETOOTH_SCAN permission</sub>
+<sub>Built for security research · Requires Android BLUETOOTH_SCAN permission</sub>
 </div>
