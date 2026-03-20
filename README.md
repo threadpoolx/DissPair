@@ -36,11 +36,11 @@ While the Android APK relies on Java Reflection, this Linux CLI directly manipul
 
 ### 1. Install System Dependencies
 
-The tool requires Linux BlueZ development headers to interact with the host radio.
+The tool uses native Linux Bluetooth utilities (bluetoothctl and hcitool) to interact with the host radio. Ensure your system's BlueZ stack is installed and up to date
 
 ```bash
 sudo apt update
-sudo apt install -y python3-bluez bluetooth libbluetooth-dev
+sudo apt install -y bluez rfkill
 ```
 
 ### 2. Set Up Python Virtual Environment
