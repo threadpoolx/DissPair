@@ -55,7 +55,7 @@ source disspair_env/bin/activate
 ### 3. Install Python Dependencies
 
 ```bash
-pip install pybluez2 bleak
+pip install bleak
 ```
 
 ---
