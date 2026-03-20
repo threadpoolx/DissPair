@@ -19,14 +19,7 @@
 
 ## What is DissPair?
 
-DissPair is a pure-Python Bluetooth security auditing tool that targets the **RFCOMM layer** of Bluetooth Classic. It bypasses the standard Service Discovery Protocol (SDP) entirely, instead directly probing channels 1–30 via raw socket connections to identify unauthenticated, hidden, and vulnerable RFCOMM ports.
-
-It was built to research and reproduce two vulnerability classes found in Bluetooth Classic firmware:
-
-| CVE | Type | Description |
-|-----|------|-------------|
-| **CVE-2025-13834** | Unauthenticated Exposure | RFCOMM channels accepting connections without pairing |
-| **CVE-2025-13328** | Resource Exhaustion (DoS) | Buffer overflow via oversized RFCOMM payload flood |
+DissPair is a pure-Python Bluetooth security auditing tool that targets the Bluetooth Classic and BLE stack to audit
 
 ---
 
