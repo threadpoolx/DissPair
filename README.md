@@ -125,5 +125,5 @@ Exploiting RFCOMM vulnerabilities on devices, vehicles, or infrastructure **with
 ---
 
 <div align="center">
-<sub>Bluetooth Classic only &nbsp;·&nbsp; Requires root &nbsp;·&nbsp; CVE-2025-13834 / CVE-2025-13328</sub>
+<sub>Bluetooth Security Toolkit</sub>
 </div>
