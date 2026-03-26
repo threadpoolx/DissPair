@@ -71,5 +71,5 @@ Exploiting Bluetooth vulnerabilities on devices, vehicles, or infrastructure **w
 ---
 
 <div align="center">
-<sub>Bluetooth Classic only &nbsp;·&nbsp; RFCOMM channels 1–30 &nbsp;·&nbsp; CVE-2025-13834 / CVE-2025-13328</sub>
+<sub>Bluetooth Security Toolkit</sub>
 </div>
