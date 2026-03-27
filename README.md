@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="disspair_logo.png" alt="DissPair Logo" width="160"/>
-
 # DissPair
 
 ### Bluetooth Security Toolkit
