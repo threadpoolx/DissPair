@@ -1,69 +1,74 @@
 <div align="center">
 
-#    DissPair CLI — Kali Edition
+# DissPair CLI — Kali Edition
 
-### Advanced Bluetooth Classic RFCOMM Auditor & Fuzzer
+### Bluetooth Protocol Analysis & Learning Toolkit
 
 [![Platform](https://img.shields.io/badge/platform-Kali%20Linux%20%7C%20Debian%20%7C%20Ubuntu-blueviolet?style=flat-square)](.)
 [![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
-[![CVE](https://img.shields.io/badge/CVE-2025--13834%20%7C%202025--13328-red?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
 
 </div>
 
 ---
 
-##   Overview
-
-DissPair CLI is a highly specialised Python command-line tool designed for security researchers to map, test, and exploit Bluetooth Classic RFCOMM layer vulnerabilities — specifically **Resource Exhaustion (DoS)** conditions (CVE-2025-13328) and **unauthenticated port exposures** (CVE-2025-13834).
-
-While the Android APK relies on Java Reflection, this Linux CLI directly manipulates native Linux kernel sockets (`AF_BLUETOOTH`) and C-level memory structures (`setsockopt`) to strip away BlueZ's default pairing enforcements. This allows it to blindly brute-force RFCOMM channels and map cloaked attack surfaces.
+> ⚠️ **Authorized Use Only**
+> This tool is intended strictly for use on devices you personally own or 
+> have explicit written permission to test. Unauthorized use against 
+> third-party devices may violate local and international law. The authors 
+> assume no liability for misuse.
 
 ---
 
-##   Supported Platforms
+## Overview
+
+DissPair CLI is a Python command-line tool for students and hardware 
+researchers who want to understand how Bluetooth Classic RFCOMM and BLE 
+GATT protocols behave at a low level on their own hardware.
+
+It uses native Linux kernel Bluetooth sockets (`AF_BLUETOOTH`) to interact 
+directly with the BlueZ stack, allowing you to observe real protocol 
+behavior without relying solely on higher-level abstractions.
+
+---
+
+## Supported Platforms
 
 | OS | Status | Notes |
 |----|--------|-------|
-| 🐧 **Kali Linux** | ✅ Recommended | Full kernel socket access, `BT_SECURITY_LOW` downgrade, active BR/EDR scanning, automated audio-sink severing |
-| 🐧 **Ubuntu / Debian** | ✅ Supported | Same capabilities as Kali — ensure BlueZ is installed |
+| 🐧 **Kali Linux** | ✅ Recommended | Full kernel socket access and native BR/EDR scanning |
+| 🐧 **Ubuntu / Debian** | ✅ Supported | Same capabilities — ensure BlueZ is installed |
 
-> **Virtual Machines:** Built-in laptop Bluetooth cannot be passed to a VM. You **must** use a **USB Bluetooth adapter** and pass it through (`VM → Removable Devices → Connect`).
+> **Virtual Machines:** Built-in laptop Bluetooth cannot be passed to a VM.
+> You **must** use a **USB Bluetooth adapter** and pass it through via your 
+> VM's removable devices menu.
 
 ---
 
-##   Installation & Setup
+## Installation & Setup
 
 ### 1. Install System Dependencies
-
-The tool uses native Linux Bluetooth utilities (bluetoothctl and hcitool) to interact with the host radio. Ensure your system's BlueZ stack is installed and up to date
-
 ```bash
 sudo apt update
 sudo apt install -y bluez rfkill
 ```
 
 ### 2. Set Up Python Virtual Environment
-
-Recommended to avoid `PEP 668` system-package conflicts.
-
 ```bash
 python3 -m venv disspair_env
 source disspair_env/bin/activate
 ```
 
 ### 3. Install Python Dependencies
-
 ```bash
 pip install bleak
 ```
 
 ---
 
-##  Usage
+## Usage
 
-> ⚠️ Raw RFCOMM socket manipulation requires elevated kernel privileges. You must run as `root`. Ensure your virtual environment is active before invoking `sudo`.
-
+> Raw RFCOMM socket operations require elevated privileges on Linux.
 ```bash
 # Activate your venv
 source disspair_env/bin/activate
@@ -74,56 +79,75 @@ sudo $(which python3) disspair_kali.py
 
 ---
 
-##   Attack Workflow
+## Features & Workflow
 
-### Step 1 — Target Acquisition
+### Step 1 — Device Discovery
 
-- **Option 1** — Actively scan for discoverable BR/EDR targets in range
-- **Option 3** — Pull targets directly from your local BlueZ pairing cache
-- **Option 4** — Enter a target MAC address manually
+| Option | Description |
+|--------|-------------|
+| **[1] Scan Classic** | Actively discover BR/EDR devices in range via hcitool or bluetoothctl |
+| **[2] Scan BLE** | Passive BLE advertisement radar using Bleak |
+| **[3] Load Paired** | Pull devices from your local BlueZ pairing cache |
+| **[4] Manual Entry** | Enter a target MAC address directly |
 
-### Step 2 — Channel Enumeration (Option 6)
+### Step 2 — Enumeration
 
-DissPair bypasses SDP and brute-forces channels 1–30. If the target is paired, it automatically severs active audio streams (PulseAudio / PipeWire) to free up the target's L2CAP multiplexer before probing.
+| Option | Description |
+|--------|-------------|
+| **Classic RFCOMM** | Probes channels 1–30 on your device to identify which are actively accepting connections, supplementing what SDP advertises |
+| **BLE GATT** | Connects and reads the full GATT service/characteristic table from your BLE device |
 
-### Step 3 — Exploitation (Option 7)
+### Step 3 — Protocol Interaction
 
 | Action | Description |
 |--------|-------------|
-| **[1] CONNECT** | Establishes a silent L2CAP/RFCOMM link — proves the port is listening without crashing the target |
-| **[2] Linux TTY** | Simulates the Kali `ModemManager` daemon by blasting a burst of Hayes AT commands (`ATZ`, `AT+CGMI`) — triggers parsers expecting audio control frames to panic |
-| **[3] FLOOD** | Executes a paced, maximum-rate data stream into the target's buffer to test for watchdog panics and resource starvation (CVE-2025-13328 vector) |
+| **[1] Connect** | Opens and holds a silent RFCOMM connection to verify a channel is live |
+| **[2] AT Commands** | Sends a sequence of standard Hayes AT modem commands — useful for studying how your device's serial profile responds |
+| **[3] Stress Test** | Transmits a sustained data stream to observe how your device handles connection load and buffer behavior |
+| **BLE Read** | Reads the current value of a GATT characteristic on your BLE device |
+| **BLE Write** | Writes a value (string or hex) to a writable GATT characteristic |
 
 ---
 
-##   Troubleshooting
+## Troubleshooting
 
-If the script fails to scan or reports `No default Bluetooth adapter found`, your host radio is likely soft-blocked or asleep. Run the following to wake it up:
-
+If the tool reports no Bluetooth adapter found:
 ```bash
-# 1. Unblock the radio from power-saving mode
+# Unblock the radio
 sudo rfkill unblock bluetooth
 
-# 2. Restart the BlueZ daemon
+# Restart BlueZ
 sudo systemctl restart bluetooth
 
-# 3. Bring the Host Controller Interface up
+# Bring the interface up
 sudo hciconfig hci0 up
 
-# 4. Verify it is running (look for "UP RUNNING")
+# Verify it is running (look for "UP RUNNING")
 hciconfig -a
 ```
 
 ---
 
-## ⚠️ Disclaimer
+## Who Is This For?
 
-DissPair is intended **strictly for authorised security auditing, academic research, and the testing of devices you own.**
+- Students learning Bluetooth protocol internals
+- Hardware developers validating their own Bluetooth implementations
+- Security researchers studying RFCOMM and GATT behavior in lab environments
+- Hobbyists exploring the Bluetooth stack on their own devices
 
-Exploiting RFCOMM vulnerabilities on devices, vehicles, or infrastructure **without explicit written consent is illegal** in most jurisdictions. The developers and contributors assume **no liability** for misuse, bricked hardware, or unauthorised access resulting from this tool.
+---
+
+## Legal & Ethical Use
+
+Only use DissPair against:
+- Devices you personally own
+- Devices where you have **explicit written authorization** from the owner
+
+Never use this tool in public spaces or against devices belonging to others.
+The authors assume no liability for misuse or any resulting damage.
 
 ---
 
 <div align="center">
-<sub>Bluetooth Security Toolkit</sub>
+<sub>Bluetooth Learning Toolkit — CLI Edition</sub>
 </div>
