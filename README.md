@@ -2,72 +2,88 @@
 
 # DissPair
 
-### Bluetooth Security Toolkit
+### Bluetooth Protocol Learning & Analysis Toolkit
 
-**A specialised security research tool for mapping and testing Bluetooth Classic and BLE-related vulnerabilities.**
+**A Python-based educational tool for understanding Bluetooth Classic and BLE 
+protocol behavior in controlled, authorized lab environments.**
 
-[![CVE](https://img.shields.io/badge/CVE-2025--13834%20%7C%202025--13328-red?style=flat-square)](.)
-[![Type](https://img.shields.io/badge/type-Security%20Research-blueviolet?style=flat-square)](.)
-[![Protocol](https://img.shields.io/badge/protocol-Bluetooth%20Classic%20RFCOMM-blue?style=flat-square)](.)
+[![Type](https://img.shields.io/badge/type-Educational%20Research-blueviolet?style=flat-square)](.)
+[![Protocol](https://img.shields.io/badge/protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
 
 </div>
 
 ---
 
-## What is DissPair?
-
-DissPair is a pure-Python Bluetooth security auditing tool that targets the Bluetooth Classic and BLE stack to audit
+> ⚠️ **Authorized Use Only**
+> This tool is intended strictly for use on devices you own or have explicit 
+> written permission to test. Unauthorized use against third-party devices may 
+> violate local laws. The authors assume no liability for misuse.
 
 ---
 
-## Choose Your Platform
+## What is DissPair?
 
-DissPair is available in two independent flavours. Pick the branch for your environment:
+DissPair is a pure-Python Bluetooth learning tool built to help hardware 
+security students and protocol researchers understand how Bluetooth Classic 
+RFCOMM and BLE GATT stacks behave at a low level.
 
-<br>
+It is designed for use in **personal lab environments** — testing your own 
+devices, understanding protocol fundamentals, and learning how Bluetooth 
+service discovery and channel communication works under the hood.
+
+---
+
+## Platform Availability
 
 <div align="center">
 
 | | Platform | Branch | Best For |
 |--|----------|--------|----------|
-| 📱 | **Android** | [`APK`](../../tree/APK) | Field auditing — scan and attack from your phone |
-| 🐉 | **Kali Linux** | [`CLI`](../../tree/CLI) | Desktop research — terminal-based, zero dependencies |
+| 📱 | **Android** | [`APK`](../../tree/APK) | Field learning — explore Bluetooth environments from a mobile device. |
+| 🐉 | **Kali Linux** | [`CLI`](../../tree/CLI) | Desktop study — terminal-based protocol analysis with minimal dependencies. |
 
 </div>
 
-<br>
-
-> Each branch contains its own full `README.md` with setup instructions, build steps, and usage guide.
+> Each branch has its own `README.md` with setup instructions and usage guides.
 
 ---
 
 ## How It Works
 
-Standard Bluetooth tools rely on SDP to discover services. DissPair ignores SDP completely and physically attempts an RFCOMM connection on every channel number:
-
+Most Bluetooth tools rely on the Service Discovery Protocol (SDP) to list 
+advertised services. DissPair supplements this by also attempting direct 
+RFCOMM channel connections, helping you understand the difference between 
+*advertised* services and *active* ones on your own hardware:
+```text
+Scan   →  Discover nearby Classic BT devices in your environment.
+  ↓
+Sweep  →  Probe channels 1–30 on your own device to map active vs. 
+          advertised services.
+  ↓
+Map    →  Visualize which channels are open and what they accept.
+  ↓
+Analyze → Send structured test payloads to study how your device 
+          handles boundary conditions and connection edge cases.
 ```
-Scan  →  Discover nearby Classic BT devices
-  ↓
-Sweep →  Connect to channels 1–30 directly (no SDP, no pairing required)
-  ↓
-Map   →  Identify which channels are open and accepting connections
-  ↓
-Flood →  Send oversized payloads to test for CVE-2025-13328 buffer overflow
-```
-
-This approach finds **cloaked ports** that SDP would never reveal, and confirms unauthenticated access at the socket level rather than relying on service advertisements.
 
 ---
 
-## ⚠️ Disclaimer
+## Who Is This For?
 
-DissPair is intended **strictly for authorised security auditing, academic research, and the testing of devices you own.**
-
-Exploiting Bluetooth vulnerabilities on devices, vehicles, or infrastructure **without explicit written consent is illegal** in most jurisdictions. The developers and contributors assume **no liability** for misuse, bricked hardware, or unauthorised access resulting from this tool.
+- Students learning Bluetooth protocol internals
+- Hardware hobbyists auditing their own devices
+- Security researchers studying RFCOMM/GATT behavior in lab setups
+- Developers building Bluetooth-enabled hardware who want to validate 
+  their own implementations
 
 ---
 
-<div align="center">
-<sub>Bluetooth Security Toolkit</sub>
-</div>
+## Legal & Ethical Use
+
+Only use DissPair against:
+- Devices you personally own
+- Devices where you have obtained **explicit written authorization** from 
+  the owner
+
+Never use this tool in public spaces or against devices belonging to others.
