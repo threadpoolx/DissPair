@@ -2,7 +2,7 @@
 
 # DissPair
 
-### Bluetooth Protocol Learning & Analysis Toolkit
+### Bluetooth Security Toolkit
 
 **A Python-based educational tool for understanding Bluetooth Classic and BLE 
 protocol behavior in controlled, authorized lab environments.**
@@ -86,4 +86,4 @@ Only use DissPair against:
 - Devices where you have obtained **explicit written authorization** from 
   the owner
 
-Never use this tool in public spaces or against devices belonging to others.
+Never use this tool in public spaces or against others' devices.
