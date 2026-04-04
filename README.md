@@ -1,8 +1,8 @@
 <div align="center">
 
-# DissPair CLI — Kali Edition
+# DissPair CLI
 
-### Bluetooth Protocol Analysis & Learning Toolkit
+### Bluetooth Security Toolkit
 
 [![Platform](https://img.shields.io/badge/platform-Kali%20Linux%20%7C%20Debian%20%7C%20Ubuntu-blueviolet?style=flat-square)](.)
 [![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
@@ -103,7 +103,7 @@ sudo $(which python3) disspair_kali.py
 |--------|-------------|
 | **[1] Connect** | Opens and holds a silent RFCOMM connection to verify a channel is live |
 | **[2] AT Commands** | Sends a sequence of standard Hayes AT modem commands — useful for studying how your device's serial profile responds |
-| **[3] Stress Test** | Transmits a sustained data stream to observe how your device handles connection load and buffer behavior |
+| **[3] Flood Test** | Transmits a sustained data stream to observe how your device handles connection load and buffer behavior |
 | **BLE Read** | Reads the current value of a GATT characteristic on your BLE device |
 | **BLE Write** | Writes a value (string or hex) to a writable GATT characteristic |
 
@@ -149,5 +149,5 @@ The authors assume no liability for misuse or any resulting damage.
 ---
 
 <div align="center">
-<sub>Bluetooth Learning Toolkit — CLI Edition</sub>
+<sub>Bluetooth Security Toolkit</sub>
 </div>
