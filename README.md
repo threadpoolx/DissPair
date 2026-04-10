@@ -15,8 +15,7 @@
 > ⚠️ **Authorized Use Only**
 > This tool is intended strictly for use on devices you personally own or 
 > have explicit written permission to test. Unauthorized use against 
-> third-party devices may violate local and international law. The authors 
-> assume no liability for misuse.
+> third-party devices may violate local and international law.
 >
 > ⚠️**Potentially Harmful Capabilities & Risk Disclosure**
 >
