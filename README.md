@@ -90,7 +90,11 @@ Analyze → Send structured test payloads to study how your device
   their own implementations
 
 ---
+## Security and Abuse Reporting
 
+If you need to report a security vulnerability, malicious activity, or third-party abuse related to this tool, please see our [Security Policy](SECURITY.md) for contact details and responsible disclosure guidelines.
+
+---
 ## Legal & Ethical Use
 
 Only use DissPair against:
