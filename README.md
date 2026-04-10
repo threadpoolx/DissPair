@@ -5,6 +5,7 @@
 ### Bluetooth Security Toolkit
 
 [![Platform](https://img.shields.io/badge/platform-Kali%20Linux%20%7C%20Debian%20%7C%20Ubuntu-blueviolet?style=flat-square)](.)
+[![CVE](https://img.shields.io/badge/CVE-CVE%202025%2013834-red?style=flat-square)](.)
 [![Python](https://img.shields.io/badge/python-3.6%2B-blue?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
 
