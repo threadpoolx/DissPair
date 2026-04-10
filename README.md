@@ -92,7 +92,7 @@ Analyze → Send structured test payloads to study how your device
 ---
 ## Security and Abuse Reporting
 
-If you need to report a security vulnerability, malicious activity, or third-party abuse related to this tool, please see our [Security Policy](SECURITY.md) for contact details and responsible disclosure guidelines.
+If you need to report a security vulnerability, malicious activity, or third-party abuse related to this tool, please see our [Security Policy](https://github.com/threadpoolx/DissPair/blob/main/Security.md) for contact details and responsible disclosure guidelines.
 
 ---
 ## Legal & Ethical Use
