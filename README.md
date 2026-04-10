@@ -147,6 +147,11 @@ hciconfig -a
 - Hobbyists exploring the Bluetooth stack on their own devices
 
 ---
+## Security and Abuse Reporting
+
+If you need to report a security vulnerability, malicious activity, or third-party abuse related to this tool, please see our [Security Policy](SECURITY.md) for contact details and responsible disclosure guidelines.
+
+---
 
 ## Legal & Ethical Use
 
