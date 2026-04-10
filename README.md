@@ -149,7 +149,7 @@ hciconfig -a
 ---
 ## Security and Abuse Reporting
 
-If you need to report a security vulnerability, malicious activity, or third-party abuse related to this tool, please see our [Security Policy](SECURITY.md) for contact details and responsible disclosure guidelines.
+If you need to report a security vulnerability, malicious activity, or third-party abuse related to this tool, please see our [Security Policy](https://github.com/threadpoolx/DissPair/blob/APK/Security.md) for contact details and responsible disclosure guidelines.
 
 ---
 
