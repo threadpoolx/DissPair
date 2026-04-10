@@ -20,7 +20,7 @@ protocol behavior in controlled, authorized lab environments.**
 > written permission to test. Unauthorized use against third-party devices may 
 > violate local laws.
 >
-> **Potentially Harmful Capabilities & Risk Disclosure**
+> ⚠️**Potentially Harmful Capabilities & Risk Disclosure**
 >
 > This tool is strictly intended for educational purposes, hardware reverse engineering, and authorized security auditing. It contains features that can cause operational disruption to target hardware if used improperly:
 >
