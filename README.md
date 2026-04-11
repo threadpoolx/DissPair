@@ -93,6 +93,34 @@ sudo $(which python3) disspair_kali.py
 
 ## Features & Workflow
 
+```mermaid
+graph TD
+    Start[START: Init & Dep Check]
+    
+    Start --> ScanClassic[Scan Classic<br/>hcitool/bluez]
+    Start --> ScanBLE[Scan BLE<br/>Bleak Scanner]
+    Start --> PairedDevices[Paired Devices<br/>Local BlueZ]
+    Start --> ManualMAC[Manual MAC]
+    
+    ScanClassic --> TargetLocked[Target Locked]
+    ScanBLE --> TargetLocked
+    PairedDevices --> TargetLocked
+    ManualMAC --> TargetLocked
+    
+    TargetLocked --> ClassicEnum[Classic Enumeration<br/>Brute-force RFCOMM 1-30]
+    TargetLocked --> BLEEnum[BLE GATT Enumeration<br/>Pull Services & Chars]
+    
+    ClassicEnum --> ClassicAttacks[RFCOMM Attacks<br/>• Silent Connection<br/>• Kali TTY Modem Noise<br/>• Resource Flood DoS]
+    
+    BLEEnum --> BLEAttacks[GATT Interaction<br/>• Read Hex/ASCII<br/>• Write Text String<br/>• Write Raw Hex]
+    
+    style Start fill:#e9ecef,stroke:#333
+    style TargetLocked fill:#e9ecef,stroke:#333
+    style ClassicEnum fill:#d1ecf1,stroke:#0c5460
+    style BLEEnum fill:#d4edda,stroke:#155724
+    style ClassicAttacks fill:#f8d7da,stroke:#721c24
+    style BLEAttacks fill:#f8d7da,stroke:#721c24
+```
 ### Step 1 — Device Discovery
 
 | Option | Description |
