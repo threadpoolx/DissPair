@@ -64,26 +64,6 @@ service discovery and channel communication works under the hood.
 
 ---
 
-## How It Works
-
-Most Bluetooth tools rely on the Service Discovery Protocol (SDP) to list 
-advertised services. DissPair supplements this by also attempting direct 
-RFCOMM channel connections, helping you understand the difference between 
-*advertised* services and *active* ones on your own hardware:
-```text
-Scan   →  Discover nearby Classic BT devices in your environment.
-  ↓
-Sweep  →  Probe channels 1–30 on your own device to map active vs. 
-          advertised services.
-  ↓
-Map    →  Visualize which channels are open and what they accept.
-  ↓
-Analyze → Send structured test payloads to study how your device 
-          handles boundary conditions and connection edge cases.
-```
-
----
-
 ## Who Is This For?
 
 - Students learning Bluetooth protocol internals
@@ -105,4 +85,4 @@ Only use DissPair against:
 - Devices where you have obtained **explicit written authorization** from 
   the owner
 
-Never use this tool in public spaces or against others' devices.
+Never use this tool in public spaces or against others' devices without consent.
