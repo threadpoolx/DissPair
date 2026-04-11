@@ -94,12 +94,6 @@ sudo $(which python3) disspair_kali.py
 ## Features & Workflow
 
 ```mermaid
----
-config:
-  theme: dark
-  look: classic
-  layout: elk
----
 flowchart TB
     Start["START: Init & Dep Check"] --> ScanClassic["Scan Classic\nhcitool/bluez"] & ScanBLE["Scan BLE\nBleak Scanner"] & PairedDevices["Paired Devices\nLocal BlueZ"] & ManualMAC["Manual MAC"]
     ScanClassic --> TargetLocked["Target Locked"]
@@ -107,19 +101,8 @@ flowchart TB
     PairedDevices --> TargetLocked
     ManualMAC --> TargetLocked
     TargetLocked --> ClassicEnum["Classic Enumeration\nBrute-force RFCOMM 1-30"] & BLEEnum["BLE GATT Enumeration\nPull Services & Chars"]
-    ClassicEnum --> ClassicAttacks["RFCOMM Attacks\n• Silent Connection\n• Kali TTY Modem Noise\n• Resource Flood DoS"]
-    BLEEnum --> BLEAttacks["GATT Interaction\n• Read Hex/ASCII\n• Write Text String\n• Write Raw Hex"]
-
-    style Start fill:#1e3a5f,stroke:#60a5fa,color:#e2e8f0
-    style ScanClassic fill:#1a2535,stroke:#3b82f6,color:#93c5fd
-    style ScanBLE fill:#1a2535,stroke:#3b82f6,color:#93c5fd
-    style PairedDevices fill:#1a2535,stroke:#3b82f6,color:#93c5fd
-    style ManualMAC fill:#1a2535,stroke:#3b82f6,color:#93c5fd
-    style TargetLocked fill:#1f2d1a,stroke:#4ade80,color:#86efac
-    style ClassicEnum fill:#2d1a3a,stroke:#a855f7,color:#d8b4fe
-    style BLEEnum fill:#2d1a3a,stroke:#a855f7,color:#d8b4fe
-    style ClassicAttacks fill:#2d1a1a,stroke:#ef4444,color:#fca5a5
-    style BLEAttacks fill:#1a2535,stroke:#38bdf8,color:#bae6fd
+    ClassicEnum --> ClassicAttacks["RFCOMM Attacks\n- Silent Connection\n- Kali TTY Modem Noise\n- Resource Flood DoS"]
+    BLEEnum --> BLEAttacks["GATT Interaction\n- Read Hex/ASCII\n- Write Text String\n- Write Raw Hex"]
 ```
 ### Step 1 — Device Discovery
 
