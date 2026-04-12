@@ -116,45 +116,46 @@ The compiled APK will appear in `app/build/outputs/apk/debug/`.
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant D as DissPair (Attacker)
-    participant T as Target Device (BT Peripheral)
-    participant M as Mobile App (Legitimate User)
+    autonumber
+    participant D as DissPair v2 (Android)
+    participant B as Android BT Stack
+    participant T as Target Device
 
-    Note over D, T: Discovery
-    D->>T: BT / BLE device scan
-    T-->>D: Device name, MAC, type returned
+    Note over D, T: 1. Setup & Device Discovery
+    D->>B: checkPermissions() and startDiscovery()
+    B-->>D: onDeviceFound(Name, MAC, Type)
+    D->>D: UI Update - Categorize Classic vs BLE
 
-    Note over D, T: Channel Enumeration
-    loop Repeated for all 30 channels
-        D->>T: createInsecureRfcommSocket(ch 1-30)
-        T-->>D: connect() success = Unpaired channel open
-        D->>T: createRfcommSocket(ch) if insecure fails
-        T-->>D: connect() success = Paired channel open
-    end
-    D->>D: Open channels listed in UI
+    Note over D, T: 2. Classic RFCOMM & Payload Mapping
+    D->>T: createRfcommSocket(ch 1-30)
+    T-->>D: Socket Verified Open
 
-    Note over D, T: Vulnerability Verify
-    D->>T: RFCOMM connect (holds socket open)
-    T-->>D: Connection accepted, verified open
-    Note right of D: Socket held open
-    alt No active connection
-        Note right of M: DissPair connects freely
-    else Active link exists
-        Note right of M: Succeeds only if device allows multi-connection
-    end
+    Note over D, T: Classic Attack Engine
+    alt Method - Flood
+        D->>T: write payload in High-Speed Loop
+        T-->>D: IOException (Buffer Overflow / DoS)
+    else Method - Payload Injection
+        Note right of D: Feature - TTY (AT Cmds), PBAP, or Custom
+        D->>T: Send specific Protocol Payload
+        T-->>D: Stream Response / Data Leak
+    end
 
-    Note over D, T: Attack A - RFCOMM Flood
-    loop via open socket
-        D->>T: write payload burst
-    end
-    T-->>D: Socket error, device crashed / rejecting
+    Note over D, T: 3. BLE GATT & Profile Interaction
+    D->>T: connectGatt() and discoverServices()
+    T-->>D: onServicesDiscovered(List of GattService)
 
-    Note over D, T: Attack B - TTY / AT Cmd
-    D->>T: AT, ATZ, AT+CGMI burst (10ms interval)
-    T-->>D: AT response or silence (modem / info leak)
+    Note over D, T: BLE Attack Engine
+    alt General Profile Access
+        D->>T: readCharacteristic(Generic_UUID)
+        T-->>D: onCharacteristicRead (DeviceInfo/Battery)
+    else Customized Profile Manipulation
+        Note right of D: Targeted Write/Fuzzing
+        D->>T: writeCharacteristic(Custom_UUID, malformed_data)
+        T-->>D: onCharacteristicWrite status
+    end
+
+    Note over D: closeAll() - Release Hardware Resources
 ```
-
 ---
 
 ## Features
