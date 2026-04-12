@@ -4,11 +4,11 @@
 
 ### Bluetooth Security Toolkit
 
-**A Python-based Android application for Security testing Bluetooth Classic and BLE in authorized lab environments.**
+**A native Android application built with Kotlin & Jetpack Compose for security testing Bluetooth Classic and BLE in authorized lab environments.**
 
 [![Platform](https://img.shields.io/badge/platform-Android-blue?style=flat-square)](.)
-[![CVE](https://img.shields.io/badge/CVE-2026–31280-red?style=flat-square)](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-13834)
-[![Framework](https://img.shields.io/badge/framework-Kivy-cyan?style=flat-square)](.)
+[![Language](https://img.shields.io/badge/language-Kotlin-purple?style=flat-square)](.)
+[![Framework](https://img.shields.io/badge/UI-Jetpack%20Compose-cyan?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
 
 </div>
@@ -26,11 +26,11 @@
 >
 > This tool is strictly intended for educational purposes, security research, and authorized security auditing. It contains features that can cause operational disruption to target hardware if used improperly:
 >
-> 1. RFCOMM Hardware Flooding: The "Flood" module intentionally injects dense byte streams into targeted Bluetooth channels. On vulnerable, legacy, or unpatched Bluetooth stacks, this can cause buffer overflows, resulting in the target device freezing, kernel panics, or complete Denial of Service (DoS).
+> 1. **RFCOMM Hardware Flooding:** The "Flood" module intentionally injects dense byte streams into targeted Bluetooth channels. On vulnerable, legacy, or unpatched Bluetooth stacks, this can cause buffer overflows, resulting in the target device freezing, kernel panics, or complete Denial of Service (DoS).
 >
-> 2. Payload Injection & State Manipulation: The ability to inject raw AT commands (e.g., HFP manipulation) and OBEX payloads can alter the operational state of target devices, potentially causing unauthorized call manipulation or disrupting audio gateways.
+> 2. **Payload Injection & State Manipulation:** The ability to inject raw AT commands (e.g., HFP handshake manipulation) and OBEX payloads can alter the operational state of target devices, potentially causing unauthorized call manipulation or disrupting audio gateways.
 >
-> 3. GATT Interaction: Unauthenticated reading/writing of BLE characteristics may expose sensitive plaintext data or alter IoT device configurations.
+> 3. **GATT Interaction:** Unauthenticated reading/writing of BLE characteristics may expose sensitive plaintext data or alter IoT device configurations.
 >
 > The developer assumes no liability for misuse or damage caused by this software. Use exclusively on hardware you own or have explicit consent to audit.
 
@@ -38,30 +38,36 @@
 
 ## Overview
 
-DissPair APK is a pure-Python Android application built with the **Kivy**
-framework. It is designed for hardware students and protocol researchers who
-want to understand how Bluetooth Classic RFCOMM channels behave at a low
-level on their own devices.
+DissPair APK is a **native Android application** written in **Kotlin** with a **Jetpack Compose** UI. It is designed for hardware students and protocol researchers who want to understand how Bluetooth Classic RFCOMM channels and BLE GATT services behave at a low level on their own devices.
 
-It uses Android's native Bluetooth API via **Java Native Interface (JNI)**
-to interact directly with the device's Bluetooth stack, allowing you to
-observe real protocol behavior without relying solely on higher-level
-abstractions like SDP.
+It uses Android's native Bluetooth APIs directly — including `BluetoothAdapter`, `BluetoothGatt`, and reflection-based `createRfcommSocket` / `createInsecureRfcommSocket` calls — to interact with the device's Bluetooth stack without relying on higher-level abstractions like SDP alone.
 
 ---
 
 ## Repository Structure
 
 ```
-disspair/
-├── main.py               # Kivy application + Bluetooth analysis logic
-├── buildozer.spec        # Android NDK/SDK build configuration + permissions
-├── disspair_logo.png     # App icon and splash screen asset
-├── requirements.txt      # Python build dependencies (Buildozer, Cython 0.29.36)
+DisspairAPK/
+├── app/
+│   └── src/
+│       └── main/
+│           ├── java/org/disspair/disspair/
+│           │   └── MainActivity.kt        # Core app logic, UI, Bluetooth analysis
+│           └── res/
+│               └── drawable/
+│                   └── disspair_logo.png  # App icon
+├── build.gradle
 └── README.md
 ```
 
-> All four files must be present in the same directory before building.
+---
+
+## Requirements
+
+- Android **6.0 (API 23)** or higher
+- Android **12+ (API 31)** requires `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` permissions
+- Location services must be enabled for Bluetooth scanning
+- For Classic device analysis: Location + Nearby Devices permissions
 
 ---
 
@@ -70,53 +76,39 @@ disspair/
 ### Direct Install (Pre-Built APK)
 
 1. Download `disspair.apk` from the [Releases](../../releases) tab
-2. On your Android device, allow your browser or file manager to
-   **Install unknown apps**
-3. Open the app and grant the requested **Location** and
-   **Nearby Devices** permissions
-   > These permissions are required for Bluetooth scanning on Android 12+
+2. On your Android device, allow your browser or file manager to **Install unknown apps**
+3. Open the app and grant the requested **Location** and **Nearby Devices** permissions
+
+> These permissions are required for Bluetooth scanning on Android 12+
 
 ### Build from Source
 
-#### 1. Install System Dependencies
-
-> Ubuntu, Debian, or Kali Linux are recommended.
+#### 1. Clone the Repository
 
 ```bash
-sudo apt update
-sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool \
-  pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake \
-  libffi-dev libssl-dev
+git clone https://github.com/threadpoolx/DissPair.git
+cd DissPair
+git checkout APK
 ```
 
-#### 2. Set Up Python Virtual Environment
+#### 2. Open in Android Studio
 
-> ⚠️ Use an isolated virtual environment to avoid PEP 668 conflicts.
-> You **must** use Cython `0.29.36` — newer versions (3.x) cause `pyjnius`
-> to fail with legacy `long` variable errors.
+- Open **Android Studio** (Hedgehog or newer recommended)
+- Select **Open** and navigate to the cloned directory
+- Let Gradle sync complete
+
+#### 3. Build & Run
 
 ```bash
-python3 -m venv disspair_env
-source disspair_env/bin/activate
-pip install -r requirements.txt
+# Via Android Studio: Build > Build Bundle(s) / APK(s) > Build APK(s)
+
+# Or via command line:
+./gradlew assembleDebug
 ```
 
-#### 3. Export Java Path
+The compiled APK will appear in `app/build/outputs/apk/debug/`.
 
-```bash
-export JAVA_HOME=$(ls -d /usr/lib/jvm/java-17-openjdk* | head -n 1)
-export PATH=$JAVA_HOME/bin:$PATH
-```
-
-#### 4. Build
-
-```bash
-buildozer android debug
-```
-
-> First run downloads the Android SDK and NDK (several GB).
-> Allow **15–30 minutes** depending on your connection and CPU.
-> The compiled APK will appear in `bin/`.
+> Ensure you have **Android SDK**, **Android NDK**, and **JDK 17** installed and configured in Android Studio.
 
 ---
 
@@ -163,36 +155,63 @@ sequenceDiagram
     T-->>D: AT response or silence (modem / info leak)
 ```
 
-### Step 1 — Device Discovery
+---
+
+## Features
+
+### Device Discovery
 
 | Button | Description |
 |--------|-------------|
-| **SCAN CLASSIC** | Discovers nearby BR/EDR devices in range using Android's `startDiscovery` API |
-| **SCAN BLE** | Passively listens for BLE advertisement packets (Under Development) |
+| **SCAN CLASSIC** | Discovers nearby BR/EDR devices using Android's `startDiscovery` API. Loops up to 5 scan cycles to maximize coverage. |
+| **SCAN BLE** | Passively listens for BLE advertisement packets via `BluetoothLeScanner`. |
 
-Paired devices are loaded automatically from your local Bluetooth cache on startup.
+Paired devices are loaded automatically from the local Bluetooth bond cache on startup and shown via the **Paired** toggle.
 
-### Step 2 — Channel Analysis
+---
 
-Tap **ANALYSE** on any Classic or Paired device to open the Channel Analyser.
+### Classic Auditor
 
-The tool probes channels 1–30 using direct RFCOMM connection attempts,
-showing which channels are actively accepting connections and whether they
-require pairing. These supplements what SDP advertises and help you
-understand your device's true channel configuration.
+Tap **ANALYSE** on any Classic or Paired device to open the RFCOMM Channel Auditor.
 
-### Step 3 — Protocol Interaction
+#### Channel Enumeration
+Probes channels **1–15** by default (expandable to **16–30** via the `PROBE 16-30` button) using direct RFCOMM connection attempts. Reports which channels are live and whether they accept unpaired (insecure) or paired (secure) connections.
 
-Once active channels are discovered, three interaction options are available:
+#### Per-Channel Actions
 
 | Action | Description |
 |--------|-------------|
-| **CONNECT** | Opens and holds an RFCOMM connection to verify a channel is live |
-| **AT Probe** | Sends a standard Hayes AT command sequence to study how your device's serial profile responds |
-| **Flood TEST** | Transmits a sustained data stream to observe how your device handles connection load and buffer behaviour under pressure |
+| **PAYLOADS** | Opens the payload dialog to send a predefined or custom payload to the channel |
+| **FLOOD** | Transmits a continuous 2048-byte burst stream to stress-test the target's RFCOMM buffer handling |
 
-The **Payload Slider** (64 B → 64 KB) controls the data block size used
-during the flood test.
+#### Payload Dialog
+- **AT Command: Connect** — Sends `ATZ\r\n` (Hayes modem reset/ping)
+- **PBAP/MAP: OBEX Connect** — Sends a raw OBEX `0x80` Connect PDU
+- **Custom Payload** — Enter any AT command; `\r\n` is auto-appended
+- Includes automatic **HFP handshake detection and bypass** — if the target opens with an `AT+BRSF` prompt, the tool auto-negotiates with `AT+BRSF=0` before injecting the chosen payload
+
+---
+
+### GATT Auditor (BLE)
+
+Tap **ANALYSE** on any BLE device to open the GATT Auditor.
+
+- Establishes a GATT connection and enumerates all services and characteristics
+- Displays service type (**General** for standard 16-bit Bluetooth UUIDs, **Customized** for vendor UUIDs)
+- Per-characteristic actions:
+
+| Action | Description |
+|--------|-------------|
+| **READ** | Reads the current value of the characteristic |
+| **WRITE** | Opens a write dialog supporting ASCII or raw Hex input |
+
+- Toggle **HEX / ASCII** display for all captured values
+
+---
+
+### System Log
+
+A live scrolling terminal log at the top of the main screen and within each overlay shows all events, discovered targets, errors, and decoded responses in color-coded monospace output.
 
 ---
 
@@ -200,7 +219,7 @@ during the flood test.
 
 - Students learning Bluetooth protocol internals on their own hardware
 - Hardware developers validating their own Bluetooth implementations
-- Security researchers studying RFCOMM behaviour in controlled lab setups
+- Security researchers studying RFCOMM and GATT behaviour in controlled lab setups
 - Hobbyists exploring the Android Bluetooth stack on personal devices
 
 ---
@@ -217,15 +236,12 @@ Only use DissPair against:
 - Devices you personally own
 - Devices where you have **explicit written authorization** from the owner
 
-Never use this tool in public spaces, against vehicles, infrastructure,
-or any device belonging to someone else.
+Never use this tool in public spaces, against vehicles, infrastructure, or any device belonging to someone else.
 
-The app enforces an authorization confirmation before every analysis
-session. This is not just a disclaimer — it is a functional gate built
-into the application.
+The app enforces an authorization confirmation before every analysis session. This is not just a disclaimer — it is a functional gate built into the application.
 
 ---
 
 <div align="center">
-<sub>Bluetooth Security Toolkit · Android Edition</sub>
+<sub>Bluetooth Security Toolkit · Native Android Edition · Kotlin + Jetpack Compose</sub>
 </div>
