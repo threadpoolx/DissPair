@@ -10,7 +10,7 @@ protocol behavior in controlled, authorized lab environments.**
 Note: In case this repository is not operational, you can find a backup repository at [Codeberg](https://codeberg.org/threadpoolx/DissPair)
 
 [![Type](https://img.shields.io/badge/Type-Research-blue?style=flat-square)](https://amoebatech.gitbook.io/amoebatech-docs/technical-blogs/rfcomm-security-from-virtual-serial-to-attack-surface-with-disspair)
-[![CVE](https://img.shields.io/badge/CVE-2025--13834-red?style=flat-square)](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-13834)
+[![CVE](https://img.shields.io/badge/CVE-2026–31280-red?style=flat-square)](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-13834)
 [![Protocol](https://img.shields.io/badge/Protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](https://www.bluetooth.com/)
 [![License](https://img.shields.io/badge/License-Research%20Use%20Only-orange?style=flat-square)](https://opensource.org/licenses/)
 
