@@ -229,6 +229,3 @@ into the application.
 <div align="center">
 <sub>Bluetooth Security Toolkit · Android Edition</sub>
 </div>
-
-
-This is current Readme, what changes to make?
