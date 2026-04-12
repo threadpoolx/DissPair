@@ -101,7 +101,7 @@ flowchart TB
     PairedDevices --> TargetLocked
     ManualMAC --> TargetLocked
     TargetLocked --> ClassicEnum["Classic Enumeration\nBrute-force RFCOMM 1-30"] & BLEEnum["BLE GATT Enumeration\nPull Services & Chars"]
-    ClassicEnum --> ClassicAttacks["RFCOMM Attacks\n- Silent Connection\n- Kali TTY Modem Noise\n- Resource Flood DoS"]
+    ClassicEnum --> ClassicAttacks["RFCOMM Attacks\n- Silent Connection\n- Kali TTY Modem Noise\n- Resource Flood DoS\n- Customized Payload"]
     BLEEnum --> BLEAttacks["GATT Interaction\n- Read Hex/ASCII\n- Write Text String\n- Write Raw Hex"]
 ```
 ### Step 1 — Device Discovery
