@@ -8,8 +8,8 @@
 protocol behavior in controlled, authorized lab environments.**
 
 Note: In case this repository is not operational, you can find a backup repository at [Codeberg]
-
 (https://codeberg.org/threadpoolx/DissPair)
+
 ![CVE-2026-31280](https://img.shields.io/badge/CVE-2026--31280-red?style=flat-square)
 [![Type](https://img.shields.io/badge/Type-Research-blue?style=flat-square)](https://nvd.nist.gov/vuln/detail/CVE-2026-31280)
 [![Protocol](https://img.shields.io/badge/Protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](https://www.bluetooth.com/)
