@@ -11,7 +11,7 @@ Note: In case this repository is not operational, you can find a backup reposito
 (https://codeberg.org/threadpoolx/DissPair)
 
 ![CVE-2026-31280](https://img.shields.io/badge/CVE-2026--31280-red?style=flat-square)
-[![Type](https://amoebatech.gitbook.io/amoebatech-docs/technical-blogs/rfcomm-security-from-virtual-serial-to-attack-surface-with-disspair)
+![Type](https://amoebatech.gitbook.io/amoebatech-docs/technical-blogs/rfcomm-security-from-virtual-serial-to-attack-surface-with-disspair)
 [![Protocol](https://img.shields.io/badge/Protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](https://www.bluetooth.com/)
 [![License](https://img.shields.io/badge/License-Research%20Use%20Only-orange?style=flat-square)](https://opensource.org/licenses/)
 
