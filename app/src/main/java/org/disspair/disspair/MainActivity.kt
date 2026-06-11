@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
     private var showPairedDevices by mutableStateOf(false)
     private var showUnknownDevices by mutableStateOf(true)
     private var activeAnalysisDevice by mutableStateOf<DeviceItem?>(null)
+    private var showRenameDialog by mutableStateOf(false)
 
     private var activeRfcommSocket: BluetoothSocket? = null
     private var activeFloodJob: Job? = null
@@ -408,15 +409,20 @@ class MainActivity : ComponentActivity() {
     fun MainScreen() {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
             Spacer(modifier = Modifier.statusBarsPadding())
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                Image(painter = painterResource(id = R.drawable.disspair_logo), contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(text = buildAnnotatedString {
-                        withStyle(style = SpanStyle(color = Color(0xFF00E5FF))) { append("Diss") }
-                        withStyle(style = SpanStyle(color = Color(0xFFFF2D55))) { append("Pair") }
-                    }, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text("Bluetooth Analysis Toolkit", color = Color(0xFF44445A), fontSize = 10.sp)
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(painter = painterResource(id = R.drawable.disspair_logo), contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(text = buildAnnotatedString {
+                            withStyle(style = SpanStyle(color = Color(0xFF00E5FF))) { append("Diss") }
+                            withStyle(style = SpanStyle(color = Color(0xFFFF2D55))) { append("Pair") }
+                        }, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text("Bluetooth Analysis Toolkit", color = Color(0xFF44445A), fontSize = 10.sp)
+                    }
+                }
+                IconButton(onClick = { showRenameDialog = true }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Rename Local Device", tint = Color(0xFF00E5FF))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -487,7 +493,46 @@ class MainActivity : ComponentActivity() {
                 }
                 item { Spacer(modifier = Modifier.navigationBarsPadding()) }
             }
+            if (showRenameDialog) {
+                RenameDeviceDialog(
+                    currentName = bluetoothAdapter?.name ?: "",
+                    onDismiss = { showRenameDialog = false },
+                    onConfirm = { newName ->
+                        try {
+                            bluetoothAdapter?.name = newName
+                            logMsg("[*] Device name changed to: $newName", "00E5FF")
+                        } catch (e: Exception) {
+                            logMsg("[-] Failed to change name: ${e.message}", "FF2D55")
+                        }
+                        showRenameDialog = false
+                    }
+                )
+            }
         }
+    }
+
+    @Composable
+    fun RenameDeviceDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+        var textVal by remember { mutableStateOf(currentName) }
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFF171721),
+            title = { Text("Rename Local Device", color = Color.White) },
+            text = {
+                TextField(
+                    value = textVal,
+                    onValueChange = { textVal = it },
+                    placeholder = { Text("Enter new name...") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = { onConfirm(textVal) }) { Text("SAVE") }
+            },
+            dismissButton = {
+                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) { Text("CANCEL") }
+            }
+        )
     }
 
     @Composable
@@ -701,7 +746,10 @@ class MainActivity : ComponentActivity() {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Spacer(modifier = Modifier.statusBarsPadding())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("CLASSIC AUDITOR", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Column {
+                        Text("CLASSIC AUDITOR", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("${device.name} | ${device.mac}", color = Color.Gray, fontSize = 10.sp)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!isProbingActiveUI && !extendedProbed) {
                             Button(onClick = {
@@ -1053,7 +1101,10 @@ class MainActivity : ComponentActivity() {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Spacer(modifier = Modifier.statusBarsPadding())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("GATT AUDITOR", color = if(isConnected) Color(0xFF39FF14) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Column {
+                        Text("GATT AUDITOR", color = if(isConnected) Color(0xFF39FF14) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("${device.name} | ${device.mac}", color = Color.Gray, fontSize = 10.sp)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("HEX", color = Color(0xFF44445A), fontSize = 9.sp)
                         Switch(checked = showHex, onCheckedChange = { showHex = it }, modifier = Modifier.customScalePadding(0.7f).padding(horizontal = 0.dp))
