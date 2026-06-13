@@ -1,0 +1,2 @@
+DissPair is a toolkit for analyzing and testing Bluetooth device connections.
+It supports security research workflows on mobile platforms.
