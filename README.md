@@ -6,6 +6,7 @@
 
 **A multi-platform educational toolkit for understanding Bluetooth Classic (RFCOMM) and BLE (GATT) protocol behavior in controlled, authorized lab environments.**
 
+[![Get it on F-Droid](https://fdroid.gitlab.io/artwork/badge/get-it-on.png)](https://f-droid.org/packages/org.disspair.disspair/)
 [![Type](https://img.shields.io/badge/type-Educational%20Research-blueviolet?style=flat-square)](.)
 [![Protocol](https://img.shields.io/badge/protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](.)
 [![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux-blueviolet?style=flat-square)](.)
