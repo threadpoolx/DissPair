@@ -4,7 +4,7 @@
 
 ### Bluetooth Security Toolkit
 
-**A Python-based educational tool for understanding Bluetooth Classic and BLE 
+**An educational tool for understanding Bluetooth Classic and BLE 
 protocol behavior in controlled, authorized lab environments.**
 
 Note: In case this repository is not operational, you can find a backup repository at [Codeberg]
