@@ -61,8 +61,8 @@ It is designed for use in **personal lab environments** — testing your own dev
 
 | | Platform | Description |
 |--|----------|-------------|
-| 📱 | **Android** | Native Kotlin app with Jetpack Compose UI for on-device Bluetooth analysis. Field learning — explore Bluetooth environments from a mobile device. |
-| 🐧 | **Linux** | Python-based tool using BlueZ and raw Bluetooth sockets. Desktop study — terminal-based protocol analysis with minimal dependencies. |
+| 📱 | [Android](https://github.com/threadpoolx/DissPair/tree/apk) | Native Kotlin app with Jetpack Compose UI for on-device Bluetooth analysis. Field learning — explore Bluetooth environments from a mobile device. |
+| 🐧 | [Linux CLI](https://github.com/threadpoolx/DissPair/tree/CLI | Python-based tool using BlueZ and raw Bluetooth sockets. Desktop study — terminal-based protocol analysis with minimal dependencies. |
 
 </div>
 
