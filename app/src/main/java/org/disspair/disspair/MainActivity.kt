@@ -221,12 +221,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun runStartupDiagnostics() {
-        val btEnabled = bluetoothAdapter?.isEnabled ?: false
-        val locManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val locEnabled = locManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-        logMsg("--- System Diagnostics ---", "00E5FF")
-        logMsg(if (btEnabled) "[OK] Bluetooth: ON" else "[!!] Bluetooth: OFF", if (btEnabled) "39FF14" else "FF2D55")
-        logMsg(if (locEnabled) "[OK] Location: ON" else "[!!] Location: OFF", if (locEnabled) "39FF14" else "FF2D55")
+        try {
+            val btEnabled = bluetoothAdapter?.isEnabled ?: false
+            val locManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val locEnabled = try { locManager.isProviderEnabled(LocationManager.GPS_PROVIDER) } catch (e: Exception) { false }
+            logMsg("--- System Diagnostics ---", "00E5FF")
+            logMsg(if (btEnabled) "[OK] Bluetooth: ON" else "[!!] Bluetooth: OFF", if (btEnabled) "39FF14" else "FF2D55")
+            logMsg(if (locEnabled) "[OK] Location: ON" else "[!!] Location: OFF", if (locEnabled) "39FF14" else "FF2D55")
+        } catch (e: Exception) {
+            logMsg("[!] Diagnostics error: ${e.message}", "FF2D55")
+        }
     }
 
     private fun logMsg(msg: String, hexColor: String = "7a7a9a") {
@@ -374,11 +378,16 @@ class MainActivity : ComponentActivity() {
             loadPairedDevices()
 
             if (!isReceiverRegistered) {
-                registerReceiver(receiver, IntentFilter().apply {
+                val filter = IntentFilter().apply {
                     addAction(BluetoothDevice.ACTION_FOUND)
                     addAction(BluetoothDevice.ACTION_UUID)
                     addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-                })
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+                } else {
+                    registerReceiver(receiver, filter)
+                }
                 isReceiverRegistered = true
             }
             classicScanCount = 0
@@ -747,7 +756,7 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.statusBarsPadding())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("CLASSIC AUDITOR", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("CLASSIC ANALYSIS", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text("${device.name} | ${device.mac}", color = Color.Gray, fontSize = 10.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -792,7 +801,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                            }, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray), modifier = Modifier.height(28.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("PROBE 16-30", fontSize = 8.sp) }
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray), modifier = Modifier.height(28.dp).padding(end = 4.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("PROBE 16-30", fontSize = 8.sp) }
                         }
 
                         IconButton(onClick = {
@@ -1102,7 +1111,7 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.statusBarsPadding())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("GATT AUDITOR", color = if(isConnected) Color(0xFF39FF14) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("GATT ANALYSIS", color = if(isConnected) Color(0xFF39FF14) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text("${device.name} | ${device.mac}", color = Color.Gray, fontSize = 10.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
