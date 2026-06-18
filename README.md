@@ -16,7 +16,7 @@
 </div>
 
 
-``[![Type](https://img.shields.io/badge/type-Educational%20Research-blueviolet?style=flat-square)](.)``
+[![Type](https://img.shields.io/badge/type-Educational%20Research-blueviolet?style=flat-square)](.)``
 [![Protocol](https://img.shields.io/badge/protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](.)
 [![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux-blueviolet?style=flat-square)](.)
 [![License](https://img.shields.io/badge/license-Research%20Use%20Only-orange?style=flat-square)](.)
