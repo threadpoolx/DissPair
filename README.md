@@ -234,9 +234,9 @@ Paired devices are loaded automatically from the local Bluetooth bond cache on s
 
 ---
 
-### Classic Auditor (RFCOMM)
+### Classic Toolkit (RFCOMM)
 
-Tap **ANALYSE** on any Classic or Paired device to open the RFCOMM Channel Auditor.
+Tap **ANALYSE** on any Classic or Paired device to open the RFCOMM Channel Toolkit.
 
 #### Channel Enumeration
 
@@ -258,9 +258,9 @@ Probes channels **1–15** by default (expandable to **16–30** via the `PROBE 
 
 ---
 
-### GATT Auditor (BLE)
+### GATT Toolkit (BLE)
 
-Tap **ANALYSE** on any BLE device to open the GATT Auditor.
+Tap **ANALYSE** on any BLE device to open the GATT Toolkit.
 
 - Establishes a GATT connection and enumerates all services and characteristics
 - Displays service type (**General** for standard 16-bit Bluetooth UUIDs, **Customized** for vendor UUIDs)
