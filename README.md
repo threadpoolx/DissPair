@@ -232,9 +232,9 @@ Paired devices are loaded automatically from the local Bluetooth bond cache on s
 
 ---
 
-### Classic Toolkit (RFCOMM)
+### Classic Analysis (RFCOMM)
 
-Tap **ANALYSE** on any Classic or Paired device to open the RFCOMM Channel Toolkit.
+Tap **ANALYSE** on any Classic or Paired device to open the RFCOMM Channel Analysis.
 
 #### Channel Enumeration
 
@@ -256,9 +256,9 @@ Probes channels **1–15** by default (expandable to **16–30** via the `PROBE 
 
 ---
 
-### GATT Toolkit (BLE)
+### GATT Analysis (BLE)
 
-Tap **ANALYSE** on any BLE device to open the GATT Toolkit.
+Tap **ANALYSE** on any BLE device to open the GATT Analysis.
 
 - Establishes a GATT connection and enumerates all services and characteristics
 - Displays service type (**General** for standard 16-bit Bluetooth UUIDs, **Customized** for vendor UUIDs)
