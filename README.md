@@ -102,8 +102,6 @@ Analyze → Interact with protocols (RFCOMM / GATT) to study behavior
 
 DissPair APK is a **native Android application** written in **Kotlin** with a **Jetpack Compose** UI. It uses Android's native Bluetooth APIs directly — including `BluetoothAdapter`, `BluetoothGatt`, and reflection-based `createRfcommSocket` / `createInsecureRfcommSocket` calls — to interact with the device's Bluetooth stack without relying on higher-level abstractions.
 
-The app enforces an authorization confirmation before every analysis session. This is not just a disclaimer — it is a functional gate built into the application.
-
 ---
 
 ## Repository Structure
