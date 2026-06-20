@@ -52,7 +52,14 @@ Unlike many tools that rely purely on Service Discovery Protocol (SDP), DissPair
 It is designed for use in **personal lab environments** — testing your own devices, understanding protocol fundamentals, and learning how Bluetooth service discovery and channel communication works under the hood.
 
 ---
+### CVEs Discovered using DissPair
 
+| CVE Number | Vulnerability Description | Link |
+| :--- | :--- | :--- |
+| **CVE-2026-31280** | An issue in the Bluetooth RFCOMM service of Parani M10 Motorcycle Intercom v2.1.3 allows unauthorized attackers to cause a Denial of Service (DoS) via supplying crafted RFCOMM frames. | [View Details](https://nvd.nist.gov/vuln/detail/CVE-2026-31280) |
+| **CVE-2025-67133** | An issue in Hero Motocorp Vida V1 Pro 2.0.7 allows a local attacker to cause a denial of service via the BLE component | [View Details](https://nvd.nist.gov/vuln/detail/CVE-2025-67133) |
+
+---
 ## Platform Variants
 
 <div align="center">
