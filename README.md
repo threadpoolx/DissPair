@@ -304,6 +304,19 @@ Allows **low-level protocol interaction without abstractions**.
 > VM users must use a USB Bluetooth adapter
 
 ---
+## Features & Workflow
+
+```mermaid
+flowchart TB
+    Start["START: Init & Dep Check"] --> ScanClassic["Scan Classic\nhcitool/bluez"] & ScanBLE["Scan BLE\nBleak Scanner"] & PairedDevices["Paired Devices\nLocal BlueZ"] & ManualMAC["Manual MAC"]
+    ScanClassic --> TargetLocked["Target Locked"]
+    ScanBLE --> TargetLocked
+    PairedDevices --> TargetLocked
+    ManualMAC --> TargetLocked
+    TargetLocked --> ClassicEnum["Classic Enumeration\nBrute-force RFCOMM 1-30"] & BLEEnum["BLE GATT Enumeration\nPull Services & Chars"]
+    ClassicEnum --> ClassicAttacks["RFCOMM Attacks\n- Silent Connection\n- Kali TTY Modem Noise\n- Resource Flood DoS\n- Customized Payload"]
+    BLEEnum --> BLEAttacks["GATT Interaction\n- Read Hex/ASCII\n- Write Text String\n- Write Raw Hex"]
+---
 
 ## Installation
 
