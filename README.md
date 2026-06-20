@@ -109,7 +109,7 @@ The app enforces an authorization confirmation before every analysis session. Th
 ## Repository Structure
 
 ```
-DisspairAPK/
+Disspair/
 ├── app/
 │   └── src/
 │       └── main/
