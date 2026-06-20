@@ -96,8 +96,6 @@ Analyze → Interact with protocols (RFCOMM / GATT) to study behavior
 
 ---
 
----
-
 # 📱 Android Application (DissPair APK)
 
 ## Overview
