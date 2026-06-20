@@ -10,7 +10,7 @@
 **A multi-platform educational toolkit for understanding Bluetooth Classic (RFCOMM) and BLE (GATT) protocol behavior in controlled, authorized lab environments.**
 
 <a href="https://f-droid.org/packages/org.disspair.disspair/">
-  <img src="https://f-droid.org/badge/get-it-on.png" alt="Download from F-Droid" width="100"/>
+  <img src="https://f-droid.org/badge/get-it-on.png" alt="Download from F-Droid" width="200"/>
 </a>
 
 [![Protocol](https://img.shields.io/badge/protocol-Bluetooth%20Classic%20%7C%20BLE-blue?style=flat-square)](.)
