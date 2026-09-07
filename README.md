@@ -1,6 +1,6 @@
 <div align="center">
 
-![DissPair Logo](https://raw.githubusercontent.com/threadpoolx/DissPair/refs/heads/main/disspair_logo.png)
+![DissPair Logo](https://raw.githubusercontent.com/threadpoolx/DissPair/refs/heads/main/disspair_logo_2.png)
 
 
 # DissPair
