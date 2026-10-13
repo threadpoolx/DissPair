@@ -1,1 +1,42 @@
-DissPair is an open-source Bluetooth security and educational toolkit designed for exploring the low-level behavior of Bluetooth Classic (RFCOMM) and Bluetooth Low Energy (BLE GATT) in authorized lab environments. It goes beyond simple service discovery by actively probing devices to reveal their true hardware behavior. Key capabilities include RFCOMM channel enumeration, custom AT command and OBEX payload injection, flooding, and full BLE GATT service mapping and manipulation, making it a powerful resource for security researchers, developers, and hardware hobbyists auditing their own devices.
+<p>DissPair is an open-source Bluetooth security toolkit for auditing <b>Bluetooth Classic (RFCOMM)</b> and <b>Bluetooth Low Energy (BLE)</b> devices you own or are authorized to test. Instead of trusting what a device advertises, it actively probes how the device really behaves. Two CVEs have been found with it (CVE-2026-31280, CVE-2025-67133).</p>
+
+<p><b>Discovery</b></p>
+<ul>
+<li>Scan Classic (BR/EDR) and BLE devices, plus already-paired devices</li>
+<li>Device class tags, RSSI and filters for unnamed and paired devices</li>
+</ul>
+
+<p><b>Bluetooth Classic (RFCOMM)</b></p>
+<ul>
+<li>Sweep RFCOMM channels 1-30 and see which accept unpaired (insecure) or paired connections</li>
+<li>Send AT commands and OBEX payloads, with automatic HFP handshake handling</li>
+<li>Flood test to stress a channel's buffer handling</li>
+</ul>
+
+<p><b>BLE advertisement inspector (GAP)</b></p>
+<ul>
+<li>Decodes every advertising field: flags, service UUIDs, names, TX power, appearance, service and manufacturer data</li>
+<li>Vendor formats: Apple Continuity (iBeacon, AirDrop, Handoff, Nearby Info, Find My), Eddystone, Google Fast Pair</li>
+<li>Privacy checks: public vs rotating addresses, identifiers in device names, tracker beacons (Find My, SmartTag, Tile)</li>
+<li>Advertising interval estimate, RSSI graph, legacy/extended PDU, PHY and connectable flags</li>
+</ul>
+
+<p><b>BLE GATT analysis</b></p>
+<ul>
+<li>Full service and characteristic map with standard and vendor names</li>
+<li>Read and write (with or without response), hex or text</li>
+<li>Subscribe to notifications and indications with a live log</li>
+<li>Automatic maximum MTU negotiation</li>
+</ul>
+
+<p><b>GATT access audit</b></p>
+<ul>
+<li>One tap tests what every characteristic allows without pairing: read, subscribe and write</li>
+<li>Results marked OPEN, AUTH, ENC, AUTHZ, KEY or DENY</li>
+<li>Optional write test: echo the value just read, or commit a chosen payload</li>
+<li>Exportable text report for vendor disclosure</li>
+</ul>
+
+<p>Follows the system light or dark theme. A companion Linux CLI is available in the source repository.</p>
+
+<p><b>Warning:</b> some features (flooding, payload injection, writes) can disrupt or reconfigure the target device. Use only on hardware you own or have explicit permission to test.</p>

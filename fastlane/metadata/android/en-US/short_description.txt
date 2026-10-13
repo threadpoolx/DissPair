@@ -1,1 +1,1 @@
-Bluetooth security toolkit
+Audit Bluetooth Classic and BLE devices: RFCOMM, GATT and advertisements
