@@ -13,6 +13,7 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -819,6 +820,16 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Shared by the X button and the system back gesture
+        fun closeOverlay() {
+            isProbingActiveUI = false
+            isProbingFlag.set(false)
+            activeFloodJob?.cancel()
+            try { activeRfcommSocket?.close() } catch(e: Exception) {}
+            onClose()
+        }
+        BackHandler { closeOverlay() }
+
         Box(modifier = Modifier.fillMaxSize().background(Pal.c.overlay)) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Spacer(modifier = Modifier.statusBarsPadding())
@@ -881,13 +892,7 @@ class MainActivity : ComponentActivity() {
                             isFlooding = null
                             channels.clear(); modalLogs.clear(); resetTrigger++
                         }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Pal.c.cyan) }
-                        IconButton(onClick = {
-                            isProbingActiveUI = false
-                            isProbingFlag.set(false)
-                            activeFloodJob?.cancel()
-                            try { activeRfcommSocket?.close() } catch(e: Exception) {}
-                            onClose()
-                        }) { Icon(Icons.Default.Close, null, tint = Pal.c.text) }
+                        IconButton(onClick = { closeOverlay() }) { Icon(Icons.Default.Close, contentDescription = "Close", tint = Pal.c.text) }
                     }
                 }
                 LazyColumn(modifier = Modifier.weight(0.5f)) {
@@ -1302,6 +1307,17 @@ class MainActivity : ComponentActivity() {
 
         val busy = !isConnected || isAuditing
 
+        // Shared by the X button and the system back gesture
+        fun closeOverlay() {
+            val g = gattConn
+            gattConn = null
+            activeSessionId.incrementAndGet()
+            teardown()
+            try { g?.disconnect() } catch(e: Exception) {}
+            onClose()
+        }
+        BackHandler { closeOverlay() }
+
         Box(modifier = Modifier.fillMaxSize().background(Pal.c.overlay)) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Spacer(modifier = Modifier.statusBarsPadding())
@@ -1328,14 +1344,7 @@ class MainActivity : ComponentActivity() {
                             mtu = 23
                             resetTrigger++
                         }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Pal.c.green) }
-                        IconButton(onClick = {
-                            val g = gattConn
-                            gattConn = null
-                            activeSessionId.incrementAndGet()
-                            teardown()
-                            try { g?.disconnect() } catch(e: Exception) {}
-                            onClose()
-                        }) { Icon(Icons.Default.Close, null, tint = Pal.c.text) }
+                        IconButton(onClick = { closeOverlay() }) { Icon(Icons.Default.Close, contentDescription = "Close", tint = Pal.c.text) }
                     }
                 }
 
