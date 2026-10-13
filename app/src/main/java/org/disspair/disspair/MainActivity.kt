@@ -45,6 +45,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
+import org.disspair.disspair.ble.AuditOptions
+import org.disspair.disspair.ble.AuditReport
+import org.disspair.disspair.ble.CharAudit
+import org.disspair.disspair.ble.GattAudit
+import org.disspair.disspair.ble.GattOps
+import org.disspair.disspair.ble.GattProps
+import org.disspair.disspair.ble.GattResult
+import org.disspair.disspair.ble.GattStatus
+import org.disspair.disspair.ble.toHex
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -61,8 +70,16 @@ data class BleServiceUI(
 
 data class GattCharUI(
     val uuid: String, val name: String, val properties: String,
-    val canRead: Boolean, val canWrite: Boolean, val canNotify: Boolean,
-    val charObj: BluetoothGattCharacteristic, var lastValue: MutableState<String> = mutableStateOf("")
+    val canRead: Boolean,
+    /** WRITE with response (0x08) */
+    val canWrite: Boolean,
+    /** NOTIFY (0x10) or INDICATE (0x20) */
+    val canNotify: Boolean,
+    val charObj: BluetoothGattCharacteristic, var lastValue: MutableState<String> = mutableStateOf(""),
+    /** WRITE_NO_RESPONSE (0x04) */
+    val canWriteNoResp: Boolean = false,
+    val notifying: MutableState<Boolean> = mutableStateOf(false),
+    val audit: MutableState<CharAudit?> = mutableStateOf(null),
 )
 
 enum class ScanMode { IDLE, CLASSIC, BLE }
@@ -996,14 +1013,20 @@ class MainActivity : ComponentActivity() {
     // --- BLE OVERLAY ---
     @Composable
     fun BleAnalysisOverlay(device: DeviceItem, onClose: () -> Unit) {
-        var modalLogs = remember { mutableStateListOf<Pair<String, String>>() }
+        val modalLogs = remember { mutableStateListOf<Pair<String, String>>() }
         val services = remember { mutableStateListOf<BleServiceUI>() }
         var gattConn: BluetoothGatt? by remember { mutableStateOf(null) }
-        var charToWrite by remember { mutableStateOf<BluetoothGattCharacteristic?>(null) }
+        var charToWrite by remember { mutableStateOf<GattCharUI?>(null) }
         var isConnected by remember { mutableStateOf(false) }
         var resetTrigger by remember { mutableIntStateOf(0) }
         var showHex by remember { mutableStateOf(true) }
+        var mtu by remember { mutableIntStateOf(23) }
+        var isAuditing by remember { mutableStateOf(false) }
+        var auditJob by remember { mutableStateOf<Job?>(null) }
+        var showAuditOptions by remember { mutableStateOf(false) }
+        var lastReport by remember { mutableStateOf<AuditReport?>(null) }
 
+        val ops = remember { GattOps() }
         val activeSessionId = remember { AtomicInteger(0) }
 
         val scope = rememberCoroutineScope()
@@ -1014,11 +1037,29 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        fun findChar(c: BluetoothGattCharacteristic): GattCharUI? {
+            services.forEach { s ->
+                s.characteristics.forEach {
+                    if (it.charObj.uuid == c.uuid && it.charObj.instanceId == c.instanceId) return it
+                }
+            }
+            return null
+        }
+
+        fun teardown() {
+            auditJob?.cancel()
+            auditJob = null
+            isAuditing = false
+            ops.cancelPending()
+            ops.gatt = null
+        }
+
         val currentGatt by rememberUpdatedState(gattConn)
         DisposableEffect(Unit) {
             onDispose {
                 val g = currentGatt
                 activeSessionId.incrementAndGet()
+                teardown()
                 try { g?.disconnect() } catch(e: Exception) { e.printStackTrace() }
                 try { g?.close() } catch(e: Exception) { e.printStackTrace() }
             }
@@ -1030,18 +1071,25 @@ class MainActivity : ComponentActivity() {
             log("[*] Initiating GATT Handshake...", "39FF14")
             val btDevice = bluetoothAdapter?.getRemoteDevice(device.mac)
             val callback = object : BluetoothGattCallback() {
+                private fun live() = activeSessionId.get() == mySessionId
 
-                private fun handleRead(charUuid: String, value: ByteArray?, status: Int) {
-                    if (activeSessionId.get() != mySessionId) return
-                    val hex = if (status == 0) value?.joinToString("") { "%02X".format(it) } ?: "Empty" else "ERR:$status"
+                private fun handleRead(char: BluetoothGattCharacteristic, value: ByteArray?, status: Int) {
+                    if (!live()) return
+                    ops.complete(GattOps.key(GattOps.READ, char.uuid), GattResult(status, value))
+                    if (status == 0) scope.launch { findChar(char)?.lastValue?.value = value.toHex() }
+                }
+
+                private fun handleChanged(char: BluetoothGattCharacteristic, value: ByteArray?) {
+                    if (!live()) return
+                    val hex = value.toHex()
                     scope.launch {
-                        log("[READ] ${charUuid.take(8)}: $hex", if(status==0) "39FF14" else "FF2D55")
-                        services.forEach { s -> s.characteristics.forEach { if(it.uuid == charUuid) it.lastValue.value = hex } }
+                        findChar(char)?.lastValue?.value = hex
+                        log("[NOTIFY] ${char.uuid.toString().take(8)}: $hex", "00E5FF")
                     }
                 }
 
                 override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                    if (activeSessionId.get() != mySessionId) {
+                    if (!live()) {
                         if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                             try { gatt.close() } catch(e: Exception) { e.printStackTrace() }
                         }
@@ -1049,7 +1097,11 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val connected = (newState == BluetoothProfile.STATE_CONNECTED)
-                    if (!connected) {
+                    if (connected) {
+                        ops.gatt = gatt
+                    } else {
+                        ops.cancelPending()
+                        ops.gatt = null
                         try { gatt.javaClass.getMethod("refresh").invoke(gatt) } catch(e: Exception) {}
                         try { gatt.close() } catch(e: Exception) {}
                     }
@@ -1060,27 +1112,38 @@ class MainActivity : ComponentActivity() {
                             gatt.discoverServices()
                             log("[+] Connected", "39FF14")
                         } else {
-                            log("[-] Disconnected", "FF2D55")
+                            auditJob?.cancel()
+                            isAuditing = false
+                            mtu = 23
+                            log("[-] Disconnected (${GattStatus.name(status)})", "FF2D55")
                         }
                     }
                 }
 
                 override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                    val capturedSession = mySessionId
                     scope.launch(Dispatchers.Main) {
-                        if (activeSessionId.get() != capturedSession) return@launch
+                        if (!live()) return@launch
 
                         log("[+] GATT Enumeration Complete. Found ${gatt.services.size} Services.", "39FF14")
 
                         gatt.services.forEach { s ->
                             val uuidStr = s.uuid.toString().lowercase()
-                            // FIX: Determine if UUID is 16-bit using standard Bluetooth Base UUID
+                            // 16-bit UUIDs live on the standard Bluetooth Base UUID
                             val is16Bit = uuidStr.endsWith("-0000-1000-8000-00805f9b34fb")
                             val sName = if (is16Bit) "General" else "Customized"
 
                             val chars = s.characteristics.map { c ->
-                                val cName = BleNames.resolve(c.uuid.toString())
-                                GattCharUI(c.uuid.toString(), cName, "R:${(c.properties and 2)!=0} W:${(c.properties and 8)!=0}", (c.properties and 2)!=0, (c.properties and 8)!=0, (c.properties and 16)!=0, c)
+                                val p = c.properties
+                                GattCharUI(
+                                    uuid = c.uuid.toString(),
+                                    name = BleNames.resolve(c.uuid.toString()),
+                                    properties = GattProps.describe(p),
+                                    canRead = p and GattProps.READ != 0,
+                                    canWrite = p and GattProps.WRITE != 0,
+                                    canNotify = p and (GattProps.NOTIFY or GattProps.INDICATE) != 0,
+                                    charObj = c,
+                                    canWriteNoResp = p and GattProps.WRITE_NO_RESPONSE != 0,
+                                )
                             }
                             services.add(BleServiceUI(s.uuid.toString(), sName, chars.toMutableList()))
                         }
@@ -1088,23 +1151,105 @@ class MainActivity : ComponentActivity() {
                 }
 
                 @Deprecated("Deprecated in Java")
+                @Suppress("DEPRECATION")
                 override fun onCharacteristicRead(gatt: BluetoothGatt, char: BluetoothGattCharacteristic, status: Int) {
-                    handleRead(char.uuid.toString(), char.value, status)
+                    // API 33+ calls both overloads; only handle the legacy one on older releases.
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) handleRead(char, char.value, status)
                 }
 
                 override fun onCharacteristicRead(gatt: BluetoothGatt, char: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
-                    handleRead(char.uuid.toString(), value, status)
+                    handleRead(char, value, status)
                 }
 
                 override fun onCharacteristicWrite(gatt: BluetoothGatt, char: BluetoothGattCharacteristic, status: Int) {
-                    if (activeSessionId.get() != mySessionId) return
-                    scope.launch { log(if(status==0) "[WRITE] Payload Accepted" else "[WRITE] Reject ($status)", if(status==0) "39FF14" else "FF2D55") }
+                    if (!live()) return
+                    ops.complete(GattOps.key(GattOps.WRITE, char.uuid), GattResult(status))
+                }
+
+                @Deprecated("Deprecated in Java")
+                @Suppress("DEPRECATION")
+                override fun onCharacteristicChanged(gatt: BluetoothGatt, char: BluetoothGattCharacteristic) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) handleChanged(char, char.value)
+                }
+
+                override fun onCharacteristicChanged(gatt: BluetoothGatt, char: BluetoothGattCharacteristic, value: ByteArray) {
+                    handleChanged(char, value)
+                }
+
+                override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+                    if (!live()) return
+                    ops.complete(GattOps.key(GattOps.DESC_WRITE, descriptor.uuid), GattResult(status))
+                }
+
+                @Deprecated("Deprecated in Java")
+                @Suppress("DEPRECATION")
+                override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+                    if (!live() || Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
+                    ops.complete(GattOps.key(GattOps.DESC_READ, descriptor.uuid), GattResult(status, descriptor.value))
+                }
+
+                override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int, value: ByteArray) {
+                    if (!live()) return
+                    ops.complete(GattOps.key(GattOps.DESC_READ, descriptor.uuid), GattResult(status, value))
+                }
+
+                override fun onMtuChanged(gatt: BluetoothGatt, newMtu: Int, status: Int) {
+                    if (!live()) return
+                    ops.complete(GattOps.key(GattOps.MTU, null), GattResult(status, mtu = newMtu))
                 }
             }
             withContext(Dispatchers.Main) {
-                gattConn = btDevice?.connectGatt(this@MainActivity, false, callback)
+                gattConn = btDevice?.connectGatt(this@MainActivity, false, callback, BluetoothDevice.TRANSPORT_LE)
+                ops.gatt = gattConn
             }
         }
+
+        fun runAudit(options: AuditOptions) {
+            val g = gattConn ?: return
+            val btDevice = g.device
+            isAuditing = true
+            services.forEach { s -> s.characteristics.forEach { it.audit.value = null } }
+            log("[*] GATT access audit started (read=${options.testRead} sub=${options.testSubscribe} echoWrite=${options.echoWrite})", "FFB000")
+            auditJob = scope.launch {
+                try {
+                    val audit = GattAudit(ops, btDevice, { BleNames.resolve(it) }, { m, c -> log(m, c) })
+                    val report = audit.run(g.services, options, mtu) { result ->
+                        services.forEach { s ->
+                            s.characteristics.forEach {
+                                if (it.uuid == result.charUuid && s.uuid == result.serviceUuid) it.audit.value = result
+                            }
+                        }
+                    }
+                    lastReport = report
+                    log("[+] Audit complete: ${report.exposedCount}/${report.results.size} usable without pairing", if (report.exposedCount > 0) "FF2D55" else "39FF14")
+                    if (report.bondChangedDuringAudit) log("[!] Bond state changed during audit - re-run unbonded to confirm", "FFB000")
+                } catch (e: CancellationException) {
+                    log("[-] Audit cancelled", "FFB000")
+                    throw e
+                } catch (e: Exception) {
+                    log("[-] Audit failed: ${e.message}", "FF2D55")
+                } finally {
+                    isAuditing = false
+                }
+            }
+        }
+
+        fun copyReport(r: AuditReport) {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("DissPair GATT audit", r.toText()))
+            log("[+] Report copied to clipboard", "39FF14")
+        }
+
+        fun shareReport(r: AuditReport) {
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "DissPair GATT audit - ${r.deviceMac}")
+                putExtra(Intent.EXTRA_TEXT, r.toText())
+            }
+            try { startActivity(Intent.createChooser(send, "Share audit report")) } catch (e: Exception) { log("[-] Share failed", "FF2D55") }
+        }
+
+        val busy = !isConnected || isAuditing
 
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFA000000))) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
@@ -1112,7 +1257,7 @@ class MainActivity : ComponentActivity() {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("GATT ANALYSIS", color = if(isConnected) Color(0xFF39FF14) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("${device.name} | ${device.mac}", color = Color.Gray, fontSize = 10.sp)
+                        Text("${device.name} | ${device.mac} | MTU $mtu", color = Color.Gray, fontSize = 10.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("HEX", color = Color(0xFF44445A), fontSize = 9.sp)
@@ -1122,22 +1267,47 @@ class MainActivity : ComponentActivity() {
                             val g = gattConn
                             gattConn = null
                             activeSessionId.incrementAndGet()
+                            teardown()
                             try { g?.disconnect() } catch(e: Exception) {}
                             services.clear()
                             charToWrite = null
                             modalLogs.clear()
+                            lastReport = null
                             isConnected = false
+                            mtu = 23
                             resetTrigger++
                         }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color(0xFF39FF14)) }
                         IconButton(onClick = {
                             val g = gattConn
                             gattConn = null
                             activeSessionId.incrementAndGet()
+                            teardown()
                             try { g?.disconnect() } catch(e: Exception) {}
                             onClose()
                         }) { Icon(Icons.Default.Close, null, tint = Color.White) }
                     }
                 }
+
+                // --- Toolbar ---
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SmallAction("MTU 517", Color(0xFF0F61B7), enabled = !busy) {
+                        scope.launch {
+                            val r = ops.requestMtu(517)
+                            if (r.ok) mtu = r.mtu
+                            log("[MTU] request 517 -> ${if (r.ok) "negotiated ${r.mtu}" else r.statusName}", if (r.ok) "39FF14" else "FF2D55")
+                        }
+                    }
+                    if (isAuditing) {
+                        SmallAction("STOP", Color(0xFFB71C1C), enabled = true) { auditJob?.cancel() }
+                    } else {
+                        SmallAction("AUDIT", Color(0xFFB36B00), enabled = !busy && services.isNotEmpty()) { showAuditOptions = true }
+                    }
+                    lastReport?.let { r ->
+                        SmallAction("COPY", Color(0xFF2E7D32), enabled = true) { copyReport(r) }
+                        SmallAction("SHARE", Color(0xFF2E7D32), enabled = true) { shareReport(r) }
+                    }
+                }
+
                 LazyColumn(modifier = Modifier.weight(0.6f)) {
                     services.forEach { s ->
                         item { Text(s.name.uppercase(), color = Color(0xFF39FF14), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)) }
@@ -1146,25 +1316,40 @@ class MainActivity : ComponentActivity() {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(char.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                        Text(char.uuid.take(18), color = Color.Gray, fontSize = 9.sp)
+                                        Text("${char.uuid.take(18)}  [${char.properties}]", color = Color.Gray, fontSize = 9.sp)
+                                        char.audit.value?.let { a ->
+                                            Text(
+                                                (if (a.exposed) "UNPAIRED ACCESS  " else "") + a.shortLine(),
+                                                color = if (a.exposed) Color(0xFFFF2D55) else Color(0xFF7A7A9A),
+                                                fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                         if(char.lastValue.value.isNotEmpty()) {
                                             val displayTxt = if(showHex) "Hex: ${char.lastValue.value}" else "ASCII: ${hexToAsciiSafe(char.lastValue.value)}"
                                             Text(displayTxt, color = Color(0xFF39FF14), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
-                                    if(char.canRead) Button(
-                                        enabled = isConnected,
-                                        onClick = { try { gattConn?.readCharacteristic(char.charObj) } catch(e: Exception) { log("[-] Read Blocked", "FF2D55") } },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F61B7)),
-                                        contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.height(28.dp)
-                                    ) { Text("READ", fontSize = 9.sp) }
+                                    if(char.canRead) SmallAction("READ", Color(0xFF0F61B7), enabled = !busy) {
+                                        scope.launch {
+                                            val r = ops.read(char.charObj)
+                                            log("[READ] ${char.uuid.take(8)}: ${if (r.ok) r.value.toHex() else r.statusName}", if (r.ok) "39FF14" else "FF2D55")
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    if(char.canWrite) Button(
-                                        enabled = isConnected,
-                                        onClick = { charToWrite = char.charObj },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C19B3)),
-                                        contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.height(28.dp)
-                                    ) { Text("WRITE", fontSize = 9.sp) }
+                                    if(char.canWrite || char.canWriteNoResp) SmallAction("WRITE", Color(0xFF8C19B3), enabled = !busy) {
+                                        charToWrite = char
+                                    }
+                                    if(char.canNotify) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        val on = char.notifying.value
+                                        SmallAction(if (on) "UNSUB" else "SUB", if (on) Color(0xFF00838F) else Color(0xFF00505A), enabled = !busy) {
+                                            scope.launch {
+                                                val r = ops.setSubscription(char.charObj, !on)
+                                                if (r.ok) char.notifying.value = !on
+                                                log("[CCCD] ${char.uuid.take(8)} ${if (!on) "subscribe" else "unsubscribe"} -> ${r.statusName}", if (r.ok) "39FF14" else "FF2D55")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1182,25 +1367,91 @@ class MainActivity : ComponentActivity() {
                 }
                 Spacer(modifier = Modifier.navigationBarsPadding())
             }
-            if(charToWrite != null) {
-                BleWriteDialog(charToWrite!!, onDismiss = { charToWrite = null }) { bytes ->
-                    try {
-                        val c = charToWrite ?: return@BleWriteDialog
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { gattConn?.writeCharacteristic(c, bytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) }
-                        else {
-                            c.value = bytes
-                            gattConn?.writeCharacteristic(c)
-                        }
-                    } catch(e: Exception) { log("[-] Write Failed", "FF2D55") }
+
+            charToWrite?.let { target ->
+                BleWriteDialog(target, maxPayload = mtu - 3, onDismiss = { charToWrite = null }) { bytes, writeType ->
+                    scope.launch {
+                        val r = ops.write(target.charObj, bytes, writeType)
+                        val mode = if (writeType == BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE) "WnR" else "W"
+                        log("[WRITE/$mode] ${target.uuid.take(8)} ${bytes.size}B -> ${r.statusName}", if (r.ok) "39FF14" else "FF2D55")
+                    }
+                }
+            }
+
+            if (showAuditOptions) {
+                AuditOptionsDialog(onDismiss = { showAuditOptions = false }) { opts ->
+                    showAuditOptions = false
+                    runAudit(opts)
                 }
             }
         }
     }
 
     @Composable
-    fun BleWriteDialog(char: BluetoothGattCharacteristic, onDismiss: () -> Unit, onSend: (ByteArray) -> Unit) {
+    fun SmallAction(label: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
+        Button(
+            enabled = enabled,
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors(containerColor = color),
+            contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.height(28.dp)
+        ) { Text(label, fontSize = 9.sp) }
+    }
+
+    @Composable
+    fun AuditOptionsDialog(onDismiss: () -> Unit, onStart: (AuditOptions) -> Unit) {
+        var testRead by remember { mutableStateOf(true) }
+        var testSub by remember { mutableStateOf(true) }
+        var echoWrite by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFF171721),
+            title = { Text("GATT Access Audit", color = Color.White) },
+            text = {
+                Column {
+                    Text(
+                        "Tests what each characteristic allows WITHOUT pairing. Run it on an unbonded device; " +
+                        "if Android shows a pairing prompt, decline it to keep results unauthenticated.",
+                        color = Color.Gray, fontSize = 11.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = testRead, onCheckedChange = { testRead = it })
+                        Text("Read readable characteristics", color = Color.White, fontSize = 12.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = testSub, onCheckedChange = { testSub = it })
+                        Text("Subscribe / unsubscribe (CCCD)", color = Color.White, fontSize = 12.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = echoWrite, onCheckedChange = { echoWrite = it })
+                        Text("Echo-write (writes back the value just read)", color = Color.White, fontSize = 12.sp)
+                    }
+                    if (echoWrite) {
+                        Text(
+                            "Echo-write sends real writes. It only rewrites a value read moments earlier, and never touches " +
+                            "write-only characteristics, but some devices act on any write (e.g. trigger commands). Use only on hardware you own.",
+                            color = Color(0xFFFFB000), fontSize = 10.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = testRead || testSub || echoWrite,
+                    onClick = { onStart(AuditOptions(testRead, testSub, echoWrite)) }
+                ) { Text("START") }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL") } }
+        )
+    }
+
+    @Composable
+    fun BleWriteDialog(char: GattCharUI, maxPayload: Int, onDismiss: () -> Unit, onSend: (ByteArray, Int) -> Unit) {
         var textVal by remember { mutableStateOf("") }
         var isHex by remember { mutableStateOf(false) }
+        // Default to write-with-response when available: it returns an ATT status.
+        var noResponse by remember { mutableStateOf(!char.canWrite && char.canWriteNoResp) }
         var errorMsg by remember { mutableStateOf<String?>(null) }
 
         AlertDialog(
@@ -1221,17 +1472,32 @@ class MainActivity : ComponentActivity() {
                         Checkbox(checked = isHex, onCheckedChange = { isHex = it; errorMsg = null })
                         Text("Hex Mode", color = Color.White)
                     }
+                    if (char.canWrite && char.canWriteNoResp) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = noResponse, onCheckedChange = { noResponse = it })
+                            Text("Write without response", color = Color.White)
+                        }
+                    } else {
+                        Text(if (char.canWrite) "Mode: write with response" else "Mode: write without response", color = Color.Gray, fontSize = 10.sp)
+                    }
+                    Text("Single-write limit at current MTU: $maxPayload bytes", color = Color.Gray, fontSize = 10.sp)
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     try {
-                        val b = if(isHex) textVal.replace(" ","").chunked(2).map{it.toInt(16).toByte()}.toByteArray() else textVal.toByteArray()
+                        val clean = textVal.replace(" ", "")
+                        if (isHex && clean.length % 2 != 0) {
+                            errorMsg = "ERR: Hex needs an even number of digits"
+                            return@Button
+                        }
+                        val b = if(isHex) clean.chunked(2).map{it.toInt(16).toByte()}.toByteArray() else textVal.toByteArray()
                         if (b.isEmpty()) {
                             errorMsg = "ERR: Payload is empty"
                             return@Button
                         }
-                        onSend(b)
+                        val type = if (noResponse) BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                        onSend(b, type)
                         onDismiss()
                     } catch(e: Exception) {
                         errorMsg = "ERR: Invalid Hex Format"
