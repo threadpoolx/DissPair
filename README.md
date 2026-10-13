@@ -292,6 +292,21 @@ Tests what every characteristic allows **without pairing** and marks each one `O
 
 ---
 
+### Advertisement Inspector (GAP)
+
+Tap **ADV** on any BLE device to inspect what it broadcasts, without connecting. It updates live while **SCAN BLE** runs.
+
+- **Every AD structure decoded:** flags, UUID lists (with names), local name, TX power, appearance, service data, manufacturer data, Mesh, URI, connection interval range, and more. Malformed length fields are flagged.
+- **Vendor formats:** Apple Continuity messages (iBeacon, AirDrop, Proximity Pairing, Handoff, Nearby Info/Action, Find My, ...), Eddystone UID/URL/TLM/EID, Google Fast Pair, Microsoft beacons, company-ID lookup.
+- **Privacy:** address type (public / random static / resolvable private / non-resolvable; exact on Android 14+, best-guess earlier), stale private addresses, identifiers embedded in names, tracker beacons (Find My, SmartTag, Tile).
+- **Over time:** estimated advertising interval, RSSI graph, number of distinct payloads (live state changes), legacy vs extended PDU, connectable flag, primary/secondary PHY, advertising SID.
+- **Risk flags:** exposed DFU or Nordic UART services.
+- **COPY / SHARE** a full text report; **ANALYSE GATT** jumps to the GATT screen.
+
+BLE scanning now uses low-latency mode (and extended advertising where supported), so it uses more battery while a scan is running.
+
+---
+
 ### Appearance
 
 - **Theme:** follows the system light/dark setting by default. Tap the theme icon in the top bar to cycle **System → Light → Dark**; the choice is remembered. In light mode the neon log colours switch to darker shades that stay readable on white.

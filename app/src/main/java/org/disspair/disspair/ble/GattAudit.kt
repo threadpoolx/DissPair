@@ -88,7 +88,7 @@ data class AuditReport(
                 appendLine("  ${if (c.exposed) "[!]" else "[ ]"} ${c.charUuid}  ${c.name}")
                 appendLine("      props=${GattProps.describe(c.properties)}  ${c.shortLine()}")
                 c.readStatus?.let { if (it != 0) appendLine("      read  -> ${GattStatus.name(it)}") }
-                if (c.read == GattStatus.Access.OPEN) appendLine("      value -> ${c.readValue.toHex()}")
+                if (c.read == GattStatus.Access.OPEN) appendLine("      value -> ${c.readValue.toHex()}" + (c.readValue.printableOrNull()?.let { "  \"$it\"" } ?: ""))
                 c.subscribeStatus?.let { if (it != 0) appendLine("      sub   -> ${GattStatus.name(it)}") }
                 c.writeStatus?.let { if (it != 0) appendLine("      write -> ${GattStatus.name(it)}") }
             }
