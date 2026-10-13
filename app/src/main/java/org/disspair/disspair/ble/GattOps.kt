@@ -44,6 +44,7 @@ class GattOps(private val timeoutMs: Long = 6000) {
         const val DESC_WRITE = "DW"
         const val DESC_READ = "DR"
         const val MTU = "MTU"
+        const val RELIABLE = "RW"
     }
 
     /** Called from BluetoothGattCallback. Results for a key nobody is waiting on are dropped. */
@@ -56,7 +57,7 @@ class GattOps(private val timeoutMs: Long = 6000) {
         pending?.complete(GattResult(GattStatus.LOCAL_REJECTED))
     }
 
-    private suspend fun run(key: String, start: (BluetoothGatt) -> Boolean): GattResult = mutex.withLock {
+    private suspend fun run(key: String, timeout: Long = timeoutMs, start: (BluetoothGatt) -> Boolean): GattResult = mutex.withLock {
         val g = gatt ?: return@withLock GattResult(GattStatus.LOCAL_REJECTED)
         val d = CompletableDeferred<GattResult>()
         pendingKey = key
@@ -65,7 +66,7 @@ class GattOps(private val timeoutMs: Long = 6000) {
         val result = if (!started) {
             GattResult(GattStatus.LOCAL_REJECTED)
         } else {
-            withTimeoutOrNull(timeoutMs) { d.await() } ?: GattResult(GattStatus.LOCAL_TIMEOUT)
+            withTimeoutOrNull(timeout) { d.await() } ?: GattResult(GattStatus.LOCAL_TIMEOUT)
         }
         pendingKey = null
         pending = null
@@ -104,6 +105,23 @@ class GattOps(private val timeoutMs: Long = 6000) {
 
     suspend fun readDescriptor(d: BluetoothGattDescriptor): GattResult =
         run(key(DESC_READ, d.uuid)) { it.readDescriptor(d) }
+
+    /**
+     * Write probe that is never committed: the value is sent as an ATT Prepare Write and
+     * then discarded with Execute Write (cancel). Many stacks enforce security at the
+     * prepare step, so the result can still show OPEN / AUTH / ENC. Returns the prepare result.
+     * Callers must not interleave other operations (the audit runs sequentially).
+     */
+    suspend fun prepareOnly(c: BluetoothGattCharacteristic, bytes: ByteArray): GattResult {
+        val g = gatt ?: return GattResult(GattStatus.LOCAL_REJECTED)
+        val began = try { g.beginReliableWrite() } catch (e: Exception) { false }
+        if (!began) return GattResult(GattStatus.LOCAL_REJECTED)
+        val r = write(c, bytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+        // Cancel the queued value. Completion arrives via onReliableWriteCompleted on most
+        // stacks; don't block the audit for long if a stack never reports it.
+        run(key(RELIABLE, null), timeout = 1500) { it.abortReliableWrite(); true }
+        return r
+    }
 
     suspend fun requestMtu(mtu: Int): GattResult = run(key(MTU, null)) { it.requestMtu(mtu) }
 
