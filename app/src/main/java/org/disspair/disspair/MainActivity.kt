@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.*
 import org.disspair.disspair.ble.AuditOptions
+import org.disspair.disspair.ble.WriteProbe
 import org.disspair.disspair.ble.AuditReport
 import org.disspair.disspair.ble.CharAudit
 import org.disspair.disspair.ble.GattAudit
@@ -1303,6 +1304,13 @@ class MainActivity : ComponentActivity() {
                 override fun onMtuChanged(gatt: BluetoothGatt, newMtu: Int, status: Int) {
                     if (!live()) return
                     ops.complete(GattOps.key(GattOps.MTU, null), GattResult(status, mtu = newMtu))
+                    // Also covers MTU exchanges started by Android or by the peripheral itself.
+                    if (status == 0) scope.launch { mtu = newMtu }
+                }
+
+                override fun onReliableWriteCompleted(gatt: BluetoothGatt, status: Int) {
+                    if (!live()) return
+                    ops.complete(GattOps.key(GattOps.RELIABLE, null), GattResult(status))
                 }
             }
             withContext(Dispatchers.Main) {
@@ -1490,7 +1498,7 @@ class MainActivity : ComponentActivity() {
             }
 
             if (showAuditOptions) {
-                AuditOptionsDialog(onDismiss = { showAuditOptions = false }) { opts ->
+                AuditOptionsDialog(mtu = mtu, onDismiss = { showAuditOptions = false }) { opts ->
                     showAuditOptions = false
                     runAudit(opts)
                 }
@@ -1509,17 +1517,30 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AuditOptionsDialog(onDismiss: () -> Unit, onStart: (AuditOptions) -> Unit) {
+    fun AuditOptionsDialog(mtu: Int, onDismiss: () -> Unit, onStart: (AuditOptions) -> Unit) {
         var testRead by remember { mutableStateOf(true) }
         var testSub by remember { mutableStateOf(true) }
         var echoWrite by remember { mutableStateOf(false) }
+        var probe by remember { mutableStateOf(WriteProbe.OFF) }
+        var payloadHex by remember { mutableStateOf("00") }
+        val payload = remember(payloadHex) {
+            val clean = payloadHex.replace(" ", "")
+            if (clean.isEmpty() || clean.length % 2 != 0) null
+            else try { clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray() } catch (e: Exception) { null }
+        }
+        val payloadError = when {
+            probe == WriteProbe.OFF -> null
+            payload == null -> "Enter hex bytes, e.g. 00 or 0102"
+            payload.size > 512 -> "Max attribute value is 512 bytes"
+            else -> null
+        }
 
         AlertDialog(
             onDismissRequest = onDismiss,
             containerColor = Pal.c.surface,
             title = { Text("GATT Access Audit", color = Pal.c.text) },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(
                         "Tests what each characteristic allows WITHOUT pairing. Run it on an unbonded device; " +
                         "if Android shows a pairing prompt, decline it to keep results unauthenticated.",
@@ -1536,12 +1557,41 @@ class MainActivity : ComponentActivity() {
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = echoWrite, onCheckedChange = { echoWrite = it })
-                        Text("Echo-write (writes back the value just read)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("Echo-write readable characteristics (rewrites the value just read)", color = Pal.c.text, fontSize = 12.sp)
                     }
-                    if (echoWrite) {
+
+                    Spacer(Modifier.height(8.dp))
+                    Text("WRITE-ONLY / UNREADABLE CHARACTERISTICS", color = Pal.c.green, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    WriteProbe.entries.forEach { m ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = probe == m, onClick = { probe = m })
+                            Text(when (m) {
+                                WriteProbe.OFF -> "Don't test"
+                                WriteProbe.PREPARE_ONLY -> "Prepare-only (sent, then cancelled; never committed)"
+                                WriteProbe.COMMIT -> "Commit payload (real write)"
+                            }, color = Pal.c.text, fontSize = 12.sp)
+                        }
+                    }
+                    if (probe != WriteProbe.OFF) {
+                        TextField(
+                            value = payloadHex, onValueChange = { payloadHex = it },
+                            label = { Text("Payload (hex)") }, singleLine = true,
+                            isError = payloadError != null
+                        )
+                        Text(payloadError ?: "${payload?.size ?: 0} byte(s). Current MTU $mtu: single write fits ${mtu - 3} bytes; " +
+                                "longer with-response writes are split into a long write automatically.",
+                            color = if (payloadError != null) Pal.c.danger else Pal.c.textSecondary, fontSize = 10.sp)
+                    }
+                    if (probe == WriteProbe.PREPARE_ONLY) {
+                        Text("Works only for write-with-response characteristics. If the device checks security only " +
+                                "at commit time, results show as inconclusive.", color = Pal.c.textSecondary, fontSize = 10.sp)
+                    }
+                    if (probe == WriteProbe.COMMIT || echoWrite) {
                         Text(
-                            "Echo-write sends real writes. It only rewrites a value read moments earlier, and never touches " +
-                            "write-only characteristics, but some devices act on any write (e.g. trigger commands). Use only on hardware you own.",
+                            (if (probe == WriteProbe.COMMIT) "Commit writes the payload to EVERY writable characteristic, including write-only " +
+                                "command and control points. Expect side effects: commands may run, settings may change, the device may reset. "
+                            else "Echo-write sends real writes; some devices act on any write. ") +
+                            "Use only on authorized test hardware.",
                             color = Pal.c.amber, fontSize = 10.sp
                         )
                     }
@@ -1549,8 +1599,8 @@ class MainActivity : ComponentActivity() {
             },
             confirmButton = {
                 Button(
-                    enabled = testRead || testSub || echoWrite,
-                    onClick = { onStart(AuditOptions(testRead, testSub, echoWrite)) }
+                    enabled = (testRead || testSub || echoWrite || probe != WriteProbe.OFF) && payloadError == null,
+                    onClick = { onStart(AuditOptions(testRead, testSub, echoWrite, probe, payload ?: byteArrayOf(0))) }
                 ) { Text("START") }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL") } }
@@ -1591,7 +1641,9 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Text(if (char.canWrite) "Mode: write with response" else "Mode: write without response", color = Pal.c.textSecondary, fontSize = 10.sp)
                     }
-                    Text("Single-write limit at current MTU: $maxPayload bytes", color = Pal.c.textSecondary, fontSize = 10.sp)
+                    Text(if (noResponse) "Limit: $maxPayload bytes (MTU-3; WnR can't be split)"
+                         else "Single write fits $maxPayload bytes (MTU-3); larger values up to 512 are sent as a long write",
+                         color = Pal.c.textSecondary, fontSize = 10.sp)
                 }
             },
             confirmButton = {
@@ -1605,6 +1657,14 @@ class MainActivity : ComponentActivity() {
                         val b = if(isHex) clean.chunked(2).map{it.toInt(16).toByte()}.toByteArray() else textVal.toByteArray()
                         if (b.isEmpty()) {
                             errorMsg = "ERR: Payload is empty"
+                            return@Button
+                        }
+                        if (noResponse && b.size > maxPayload) {
+                            errorMsg = "ERR: Write-without-response can't exceed MTU-3 = $maxPayload bytes (no long-write for WnR)"
+                            return@Button
+                        }
+                        if (b.size > 512) {
+                            errorMsg = "ERR: Max attribute value is 512 bytes"
                             return@Button
                         }
                         val type = if (noResponse) BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT

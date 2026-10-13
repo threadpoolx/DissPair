@@ -26,10 +26,21 @@ import java.util.Locale
  * when a peripheral answers INSUFFICIENT_AUTHENTICATION; [AuditReport.bondChangedDuringAudit]
  * flags that so later results can be read with care.
  */
+/** How the audit tests writes on characteristics it can't echo-write (write-only, unreadable). */
+enum class WriteProbe(val label: String) {
+    OFF("off"),
+    /** ATT Prepare Write, then cancel. Nothing is committed. */
+    PREPARE_ONLY("prepare-only"),
+    /** Really writes [AuditOptions.probePayload]. Can trigger commands or change settings. */
+    COMMIT("commit"),
+}
+
 data class AuditOptions(
     val testRead: Boolean = true,
     val testSubscribe: Boolean = true,
     val echoWrite: Boolean = false,
+    val writeProbe: WriteProbe = WriteProbe.OFF,
+    val probePayload: ByteArray = byteArrayOf(0x00),
 )
 
 data class CharAudit(
@@ -77,10 +88,10 @@ data class AuditReport(
         appendLine("Bonded : ${if (bondedAtStart) "YES - results do NOT reflect unauthenticated access" else "NO (unauthenticated)"}")
         if (bondChangedDuringAudit) appendLine("WARNING: bond state changed during audit (stack-initiated pairing). Re-run unbonded to confirm.")
         appendLine("MTU    : $mtu")
-        appendLine("Tests  : read=${options.testRead} subscribe=${options.testSubscribe} echoWrite=${options.echoWrite}")
+        appendLine("Tests  : read=${options.testRead} subscribe=${options.testSubscribe} echoWrite=${options.echoWrite} writeProbe=${options.writeProbe.label}" + if (options.writeProbe == WriteProbe.COMMIT) " payload=${options.probePayload.toHex()}" else "")
         appendLine("Summary: $exposedCount/${results.size} characteristics usable without pairing")
         appendLine()
-        appendLine("Legend: OPEN=allowed unpaired, AUTH/ENC/AUTHZ/KEY=security required, DENY=not permitted, ERR=other error, --=not tested")
+        appendLine("Legend: OPEN=allowed unpaired, PREP=prepare-write accepted but commit unverified, AUTH/ENC/AUTHZ/KEY=security required, DENY=not permitted, ERR=other error, --=not tested")
         results.groupBy { it.serviceUuid }.forEach { (svc, chars) ->
             appendLine()
             appendLine("Service $svc")
@@ -109,6 +120,7 @@ class GattAudit(
         currentMtu: Int,
         onCharDone: (CharAudit) -> Unit,
     ): AuditReport {
+        mtu = currentMtu
         val started = System.currentTimeMillis()
         val bondedAtStart = device.bondState == BluetoothDevice.BOND_BONDED
         if (bondedAtStart) log("[!] Device is BONDED - audit shows paired access, not unauthenticated", "FFB000")
@@ -164,20 +176,50 @@ class GattAudit(
         }
 
         val writable = p and (GattProps.WRITE or GattProps.WRITE_NO_RESPONSE) != 0
-        if (o.echoWrite && writable) {
-            val v = a.readValue
-            if (a.read == GattStatus.Access.OPEN && v != null) {
-                // Write-without-response gives no ATT response, so it can't reveal security
-                // requirements; prefer write-with-response when the characteristic supports it.
-                val type = if (p and GattProps.WRITE != 0) WRITE_TYPE_DEFAULT else WRITE_TYPE_NO_RESPONSE
-                val r = ops.write(c, v, type)
-                a = a.copy(write = GattStatus.classify(r.status), writeStatus = r.status)
-                if (type == WRITE_TYPE_NO_RESPONSE) a = a.copy(note = joinNote(a.note, "WnR: accepted locally, unconfirmed"))
-            } else {
-                a = a.copy(note = joinNote(a.note, "write skipped: no safe value"))
+        val withResponse = p and GattProps.WRITE != 0
+        val echoValue = a.readValue.takeIf { a.read == GattStatus.Access.OPEN }
+        when {
+            !writable -> {}
+            // 1. Echo-write: rewrite the value just read (no state change). Preferred when possible.
+            o.echoWrite && echoValue != null -> a = commitWrite(a, c, echoValue, withResponse)
+            // 2. Prepare-only probe: queue the payload, then cancel. Needs write-with-response.
+            o.writeProbe == WriteProbe.PREPARE_ONLY -> {
+                if (!withResponse) {
+                    a = a.copy(note = joinNote(a.note, "prepare-only needs write-with-response; WnR not probed"))
+                } else {
+                    val r = ops.prepareOnly(c, o.probePayload)
+                    a = when (r.status) {
+                        0x06 -> a.copy(writeStatus = r.status, note = joinNote(a.note, "prepare write not supported: inconclusive"))
+                        // A successful prepare is NOT proof the write would commit: some devices only
+                        // check security at Execute Write. Report it separately from OPEN.
+                        else -> if (r.ok) a.copy(write = GattStatus.Access.PREPARED, writeStatus = r.status,
+                            note = joinNote(a.note, "prepare accepted unpaired, cancelled; commit unverified"))
+                        else a.copy(write = GattStatus.classify(r.status), writeStatus = r.status)
+                    }
+                }
             }
+            // 3. Commit probe: really write the chosen payload.
+            o.writeProbe == WriteProbe.COMMIT -> a = commitWrite(a, c, o.probePayload, withResponse)
+            o.echoWrite -> a = a.copy(note = joinNote(a.note, "write skipped: not readable, no echo value"))
         }
         return a
+    }
+
+    private var mtu = 23
+
+    private suspend fun commitWrite(a: CharAudit, c: BluetoothGattCharacteristic, value: ByteArray, withResponse: Boolean): CharAudit {
+        // With-response writes larger than MTU-3 become a long write (Prepare + Execute);
+        // write-without-response can't be split, so an oversized payload can't be sent.
+        if (!withResponse && value.size > mtu - 3) {
+            return a.copy(note = joinNote(a.note, "WnR skipped: ${value.size}B payload > MTU-3 (${mtu - 3}B)"))
+        }
+        // Write-without-response gets no ATT response, so it can't reveal security requirements;
+        // use write-with-response whenever the characteristic supports it.
+        val type = if (withResponse) WRITE_TYPE_DEFAULT else WRITE_TYPE_NO_RESPONSE
+        val r = ops.write(c, value, type)
+        var out = a.copy(write = GattStatus.classify(r.status), writeStatus = r.status)
+        if (!withResponse) out = out.copy(note = joinNote(out.note, "WnR: accepted locally, unconfirmed"))
+        return out
     }
 
     private fun joinNote(a: String, b: String) = if (a.isEmpty()) b else "$a; $b"
