@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.DissPair" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Light variant; values-night/themes.xml supplies the dark one, so the launch
+         window follows the system theme before Compose takes over. -->
+    <style name="Theme.DissPair" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/disspair_window_bg</item>
+    </style>
 </resources>

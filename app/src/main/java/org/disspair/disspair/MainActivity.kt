@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import kotlinx.coroutines.*
 import org.disspair.disspair.ble.AuditOptions
 import org.disspair.disspair.ble.AuditReport
@@ -54,6 +56,11 @@ import org.disspair.disspair.ble.GattProps
 import org.disspair.disspair.ble.GattResult
 import org.disspair.disspair.ble.GattStatus
 import org.disspair.disspair.ble.toHex
+import org.disspair.disspair.ui.DarkColors
+import org.disspair.disspair.ui.LightColors
+import org.disspair.disspair.ui.Pal
+import org.disspair.disspair.ui.ThemeMode
+import org.disspair.disspair.ui.ThemePrefs
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -88,10 +95,10 @@ enum class ScanMode { IDLE, CLASSIC, BLE }
 fun parseColorSafe(hexColor: String): Color {
     val hexStr = if (hexColor.startsWith("#")) hexColor else "#$hexColor"
     return try {
-        Color(android.graphics.Color.parseColor(hexStr))
+        Pal.adapt(Color(android.graphics.Color.parseColor(hexStr)))
     } catch (e: Exception) {
         e.printStackTrace()
-        Color.Gray
+        Pal.c.textSecondary
     }
 }
 
@@ -169,6 +176,7 @@ class MainActivity : ComponentActivity() {
     private var showUnknownDevices by mutableStateOf(true)
     private var activeAnalysisDevice by mutableStateOf<DeviceItem?>(null)
     private var showRenameDialog by mutableStateOf(false)
+    private var themeMode by mutableStateOf(ThemeMode.SYSTEM)
 
     private var activeRfcommSocket: BluetoothSocket? = null
     private var activeFloodJob: Job? = null
@@ -186,9 +194,27 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         requestPermissions()
+        themeMode = ThemePrefs.load(this)
+        val systemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        Pal.c = if (resolveDark(themeMode, systemDark)) DarkColors else LightColors
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0A0A0F)) {
+            val dark = resolveDark(themeMode, isSystemInDarkTheme())
+            SideEffect {
+                if (Pal.c.isDark != dark) Pal.c = if (dark) DarkColors else LightColors
+                // Dark status/nav bar icons on light backgrounds, light icons on dark ones
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
+            val scheme = if (dark) {
+                darkColorScheme(primary = Color(0xFF0F61B7), onPrimary = Color.White)
+            } else {
+                lightColorScheme(primary = Color(0xFF0F61B7), onPrimary = Color.White)
+            }
+            MaterialTheme(colorScheme = scheme) {
+                Surface(modifier = Modifier.fillMaxSize(), color = Pal.c.background, contentColor = Pal.c.text) {
                     if (showAuthModal) {
                         AuthModal(onConfirm = { showAuthModal = false; runStartupDiagnostics() }, onExit = { finish() })
                     } else {
@@ -210,6 +236,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun resolveDark(mode: ThemeMode, systemDark: Boolean): Boolean = when (mode) {
+        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+
+    private fun cycleTheme() {
+        themeMode = themeMode.next()
+        ThemePrefs.save(this, themeMode)
+        logMsg("[*] Theme: ${themeMode.label}", "00E5FF")
     }
 
     override fun onDestroy() {
@@ -441,20 +479,33 @@ class MainActivity : ComponentActivity() {
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(text = buildAnnotatedString {
-                            withStyle(style = SpanStyle(color = Color(0xFF00E5FF))) { append("Diss") }
-                            withStyle(style = SpanStyle(color = Color(0xFFFF2D55))) { append("Pair") }
+                            withStyle(style = SpanStyle(color = Pal.c.cyan)) { append("Diss") }
+                            withStyle(style = SpanStyle(color = Pal.c.red)) { append("Pair") }
                         }, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                        Text("Bluetooth Analysis Toolkit", color = Color(0xFF44445A), fontSize = 10.sp)
+                        Text("Bluetooth Analysis Toolkit", color = Pal.c.textMuted, fontSize = 10.sp)
                     }
                 }
-                IconButton(onClick = { showRenameDialog = true }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Rename Local Device", tint = Color(0xFF00E5FF))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { cycleTheme() }) {
+                        Icon(
+                            when (themeMode) {
+                                ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                ThemeMode.LIGHT -> Icons.Default.LightMode
+                                ThemeMode.DARK -> Icons.Default.DarkMode
+                            },
+                            contentDescription = "Theme: ${themeMode.label} (tap to change)",
+                            tint = Pal.c.cyan
+                        )
+                    }
+                    IconButton(onClick = { showRenameDialog = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Rename Local Device", tint = Pal.c.cyan)
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
             val listState = rememberLazyListState()
             LaunchedEffect(systemLogs.size) { if (systemLogs.isNotEmpty()) listState.animateScrollToItem(systemLogs.size - 1) }
-            Box(modifier = Modifier.fillMaxWidth().weight(0.30f).background(Color(0xFF07070A), RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF1A1A24), RoundedCornerShape(8.dp)).padding(6.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().weight(0.30f).background(Pal.c.console, RoundedCornerShape(8.dp)).border(1.dp, Pal.c.border, RoundedCornerShape(8.dp)).padding(6.dp)) {
                 LazyColumn(state = listState) {
                     items(systemLogs) { logPair: Pair<String, String> ->
                         Text(text = logPair.first, color = parseColorSafe(logPair.second), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
@@ -474,16 +525,16 @@ class MainActivity : ComponentActivity() {
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("TARGET DEVICES", color = Color(0xFF44445A), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Text("TARGET DEVICES", color = Pal.c.textMuted, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     IconButton(onClick = { foundDevices.removeAll { it.type != "PAIRED" } }, modifier = Modifier.size(28.dp).padding(start = 4.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color(0xFFFC1037), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Pal.c.danger, modifier = Modifier.size(16.dp))
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Unknown", color = Color(0xFF44445A), fontSize = 9.sp)
+                    Text("Unknown", color = Pal.c.textMuted, fontSize = 9.sp)
                     Switch(checked = showUnknownDevices, onCheckedChange = { showUnknownDevices = it }, modifier = Modifier.customScalePadding(0.7f).padding(horizontal = 0.dp))
                     Spacer(modifier = Modifier.width(2.dp))
-                    Text("Paired", color = Color(0xFF44445A), fontSize = 9.sp)
+                    Text("Paired", color = Pal.c.textMuted, fontSize = 9.sp)
                     Switch(checked = showPairedDevices, onCheckedChange = { showPairedDevices = it; loadPairedDevices() }, modifier = Modifier.customScalePadding(0.7f))
                 }
             }
@@ -542,8 +593,8 @@ class MainActivity : ComponentActivity() {
         var textVal by remember { mutableStateOf(currentName) }
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = Color(0xFF171721),
-            title = { Text("Rename Local Device", color = Color.White) },
+            containerColor = Pal.c.surface,
+            title = { Text("Rename Local Device", color = Pal.c.text) },
             text = {
                 TextField(
                     value = textVal,
@@ -556,30 +607,30 @@ class MainActivity : ComponentActivity() {
                 Button(onClick = { onConfirm(textVal) }) { Text("SAVE") }
             },
             dismissButton = {
-                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) { Text("CANCEL") }
+                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Pal.c.neutral)) { Text("CANCEL") }
             }
         )
     }
 
     @Composable
     fun DeviceCard(device: DeviceItem, onAnalyze: () -> Unit, onUnpair: (() -> Unit)? = null) {
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF171721), RoundedCornerShape(10.dp)).padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().background(Pal.c.surface, RoundedCornerShape(10.dp)).padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(device.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(device.name, color = Pal.c.text, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(getDeviceClassTag(device.deviceClass), color = Color(0xFF8A8A9E), fontSize = 7.sp, fontWeight = FontWeight.Bold, modifier = Modifier.border(1.dp, Color(0xFF44445A), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp))
+                    Text(getDeviceClassTag(device.deviceClass), color = Pal.c.textSubtle, fontSize = 7.sp, fontWeight = FontWeight.Bold, modifier = Modifier.border(1.dp, Pal.c.textMuted, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp))
                 }
                 Text(text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(color = Color(0xFFEEEEEE))) { append(device.mac) }
+                    withStyle(style = SpanStyle(color = Pal.c.textStrong)) { append(device.mac) }
                     append(" | ")
                     withStyle(style = SpanStyle(color = when(device.type){
-                        "Classic" -> Color(0xFF00E5FF)
-                        "BLE" -> Color(0xFF39FF14)
-                        else -> Color(0xFFFFA500)
+                        "Classic" -> Pal.c.cyan
+                        "BLE" -> Pal.c.green
+                        else -> Pal.c.orange
                     })) { append(device.type) }
                 }, fontSize = 10.sp)
-                Text("RSSI: ${device.rssi} dBm", color = if(device.rssi > -70) Color(0xFF39FF14) else Color(0xFFFFA500), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("RSSI: ${device.rssi} dBm", color = if(device.rssi > -70) Pal.c.green else Pal.c.orange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (device.type == "PAIRED") {
@@ -593,7 +644,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun AuthModal(onConfirm: () -> Unit, onExit: () -> Unit) {
-        AlertDialog(onDismissRequest = onExit, containerColor = Color(0xFF12121A), title = { Text("Authorized Audit Mode", color = Color(0xFF00E5FF)) }, text = { Text("By proceeding, you confirm ownership or testing rights for the target hardware.", color = Color.White) }, confirmButton = { Button(onClick = onConfirm) { Text("I CONFIRM") } }, dismissButton = { Button(onClick = onExit) { Text("EXIT") } })
+        AlertDialog(onDismissRequest = onExit, containerColor = Pal.c.surface, title = { Text("Authorized Audit Mode", color = Pal.c.cyan) }, text = { Text("By proceeding, you confirm ownership or testing rights for the target hardware.", color = Pal.c.text) }, confirmButton = { Button(onClick = onConfirm) { Text("I CONFIRM") } }, dismissButton = { Button(onClick = onExit) { Text("EXIT") } })
     }
 
     @Composable
@@ -610,25 +661,25 @@ class MainActivity : ComponentActivity() {
         if (showHelpDialog) {
             AlertDialog(
                 onDismissRequest = { showHelpDialog = false },
-                containerColor = Color(0xFF171721),
+                containerColor = Pal.c.surface,
                 title = {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("AT Commands Guide", color = Color(0xFF00E5FF), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("AT Commands Guide", color = Pal.c.cyan, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         IconButton(onClick = { showHelpDialog = false }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Pal.c.text)
                         }
                     }
                 },
                 text = {
                     Column {
-                        Text("Common commands to test:\n", color = Color.Gray, fontSize = 12.sp)
-                        Text("• ATZ  (Ping/Reset)", color = Color.White, fontSize = 12.sp)
-                        Text("• ATD1234567890;  (Dial number)", color = Color.White, fontSize = 12.sp)
-                        Text("• ATA  (Answer call)", color = Color.White, fontSize = 12.sp)
-                        Text("• AT+CIND?  (Get device status)", color = Color.White, fontSize = 12.sp)
-                        Text("• AT+VGS=15  (Max volume)", color = Color.White, fontSize = 12.sp)
-                        Text("• AT+BRSF=0  (HFP handshake)", color = Color.White, fontSize = 12.sp)
-                        Text("\nNote: \\r\\n is auto-appended to your input.", color = Color.Gray, fontSize = 10.sp)
+                        Text("Common commands to test:\n", color = Pal.c.textSecondary, fontSize = 12.sp)
+                        Text("• ATZ  (Ping/Reset)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("• ATD1234567890;  (Dial number)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("• ATA  (Answer call)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("• AT+CIND?  (Get device status)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("• AT+VGS=15  (Max volume)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("• AT+BRSF=0  (HFP handshake)", color = Pal.c.text, fontSize = 12.sp)
+                        Text("\nNote: \\r\\n is auto-appended to your input.", color = Pal.c.textSecondary, fontSize = 10.sp)
                     }
                 },
                 confirmButton = {}
@@ -637,11 +688,11 @@ class MainActivity : ComponentActivity() {
 
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = Color(0xFF171721),
-            title = { Text("Select Payload (Ch ${channel.channel})", color = Color(0xFF00E5FF), fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+            containerColor = Pal.c.surface,
+            title = { Text("Select Payload (Ch ${channel.channel})", color = Pal.c.cyan, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Predefined Payloads", color = Color.Gray, fontSize = 10.sp)
+                    Text("Predefined Payloads", color = Pal.c.textSecondary, fontSize = 10.sp)
                     payloads.forEach { p ->
                         Button(
                             onClick = { onSend(p.first, p.second); onDismiss() },
@@ -652,18 +703,18 @@ class MainActivity : ComponentActivity() {
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color.DarkGray))
+                    Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Pal.c.neutral))
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Custom Payload", color = Color.Gray, fontSize = 10.sp)
+                        Text("Custom Payload", color = Pal.c.textSecondary, fontSize = 10.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         TextButton(
                             onClick = { showHelpDialog = true },
                             contentPadding = PaddingValues(0.dp),
                             modifier = Modifier.height(20.dp)
                         ) {
-                            Text("(?) Help", color = Color(0xFF00E5FF), fontSize = 10.sp)
+                            Text("(?) Help", color = Pal.c.cyan, fontSize = 10.sp)
                         }
                     }
 
@@ -675,7 +726,7 @@ class MainActivity : ComponentActivity() {
                         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
                     )
                     if (errorMsg != null) {
-                        Text(errorMsg!!, color = Color(0xFFFC1037), fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+                        Text(errorMsg!!, color = Pal.c.danger, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
                     }
 
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -701,7 +752,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             },
-            confirmButton = { Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) { Text("CANCEL") } }
+            confirmButton = { Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Pal.c.neutral)) { Text("CANCEL") } }
         )
     }
 
@@ -768,13 +819,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFA000000))) {
+        Box(modifier = Modifier.fillMaxSize().background(Pal.c.overlay)) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Spacer(modifier = Modifier.statusBarsPadding())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("CLASSIC ANALYSIS", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("${device.name} | ${device.mac}", color = Color.Gray, fontSize = 10.sp)
+                        Text("CLASSIC ANALYSIS", color = Pal.c.cyan, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("${device.name} | ${device.mac}", color = Pal.c.textSecondary, fontSize = 10.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!isProbingActiveUI && !extendedProbed) {
@@ -818,7 +869,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                            }, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray), modifier = Modifier.height(28.dp).padding(end = 4.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("PROBE 16-30", fontSize = 8.sp) }
+                            }, colors = ButtonDefaults.buttonColors(containerColor = Pal.c.neutral), modifier = Modifier.height(28.dp).padding(end = 4.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("PROBE 16-30", fontSize = 8.sp) }
                         }
 
                         IconButton(onClick = {
@@ -829,20 +880,20 @@ class MainActivity : ComponentActivity() {
                             try { activeRfcommSocket?.close() } catch(e: Exception) {}
                             isFlooding = null
                             channels.clear(); modalLogs.clear(); resetTrigger++
-                        }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color(0xFF00E5FF)) }
+                        }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Pal.c.cyan) }
                         IconButton(onClick = {
                             isProbingActiveUI = false
                             isProbingFlag.set(false)
                             activeFloodJob?.cancel()
                             try { activeRfcommSocket?.close() } catch(e: Exception) {}
                             onClose()
-                        }) { Icon(Icons.Default.Close, null, tint = Color.White) }
+                        }) { Icon(Icons.Default.Close, null, tint = Pal.c.text) }
                     }
                 }
                 LazyColumn(modifier = Modifier.weight(0.5f)) {
                     items(channels) { ch ->
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).background(Color(0xFF1A1A24), RoundedCornerShape(8.dp)).padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column { Text("Ch ${ch.channel}", color = Color.White, fontSize = 13.sp); Text(ch.authType, color = Color.Gray, fontSize = 9.sp) }
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).background(Pal.c.surfaceAlt, RoundedCornerShape(8.dp)).padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column { Text("Ch ${ch.channel}", color = Pal.c.text, fontSize = 13.sp); Text(ch.authType, color = Pal.c.textSecondary, fontSize = 9.sp) }
                             Row {
                                 Button(onClick = { payloadDialogChannel = ch }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8C19B3)), modifier = Modifier.height(30.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text("PAYLOADS", fontSize=9.sp) }
 
@@ -890,7 +941,7 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(10.dp))
                 val mState = rememberLazyListState()
                 LaunchedEffect(modalLogs.size) { if(modalLogs.isNotEmpty()) mState.animateScrollToItem(modalLogs.size - 1) }
-                Box(modifier = Modifier.fillMaxWidth().weight(0.4f).background(Color(0xFF07070A), RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF1A1A24), RoundedCornerShape(8.dp)).padding(6.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().weight(0.4f).background(Pal.c.console, RoundedCornerShape(8.dp)).border(1.dp, Pal.c.border, RoundedCornerShape(8.dp)).padding(6.dp)) {
                     LazyColumn(state = mState) {
                         items(modalLogs) { l: Pair<String, String> ->
                             Text(text = l.first, color = parseColorSafe(l.second), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
@@ -1251,16 +1302,16 @@ class MainActivity : ComponentActivity() {
 
         val busy = !isConnected || isAuditing
 
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFA000000))) {
+        Box(modifier = Modifier.fillMaxSize().background(Pal.c.overlay)) {
             Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Spacer(modifier = Modifier.statusBarsPadding())
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("GATT ANALYSIS", color = if(isConnected) Color(0xFF39FF14) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("${device.name} | ${device.mac} | MTU $mtu", color = Color.Gray, fontSize = 10.sp)
+                        Text("GATT ANALYSIS", color = if(isConnected) Pal.c.green else Pal.c.textSecondary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("${device.name} | ${device.mac} | MTU $mtu", color = Pal.c.textSecondary, fontSize = 10.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("HEX", color = Color(0xFF44445A), fontSize = 9.sp)
+                        Text("HEX", color = Pal.c.textMuted, fontSize = 9.sp)
                         Switch(checked = showHex, onCheckedChange = { showHex = it }, modifier = Modifier.customScalePadding(0.7f).padding(horizontal = 0.dp))
 
                         IconButton(onClick = {
@@ -1276,7 +1327,7 @@ class MainActivity : ComponentActivity() {
                             isConnected = false
                             mtu = 23
                             resetTrigger++
-                        }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color(0xFF39FF14)) }
+                        }) { Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Pal.c.green) }
                         IconButton(onClick = {
                             val g = gattConn
                             gattConn = null
@@ -1284,7 +1335,7 @@ class MainActivity : ComponentActivity() {
                             teardown()
                             try { g?.disconnect() } catch(e: Exception) {}
                             onClose()
-                        }) { Icon(Icons.Default.Close, null, tint = Color.White) }
+                        }) { Icon(Icons.Default.Close, null, tint = Pal.c.text) }
                     }
                 }
 
@@ -1310,23 +1361,23 @@ class MainActivity : ComponentActivity() {
 
                 LazyColumn(modifier = Modifier.weight(0.6f)) {
                     services.forEach { s ->
-                        item { Text(s.name.uppercase(), color = Color(0xFF39FF14), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)) }
+                        item { Text(s.name.uppercase(), color = Pal.c.green, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)) }
                         items(s.characteristics) { char: GattCharUI ->
-                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).background(Color(0xFF0F0F16), RoundedCornerShape(8.dp)).padding(10.dp)) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).background(Pal.c.surfaceAlt, RoundedCornerShape(8.dp)).padding(10.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(char.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                        Text("${char.uuid.take(18)}  [${char.properties}]", color = Color.Gray, fontSize = 9.sp)
+                                        Text(char.name, color = Pal.c.text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("${char.uuid.take(18)}  [${char.properties}]", color = Pal.c.textSecondary, fontSize = 9.sp)
                                         char.audit.value?.let { a ->
                                             Text(
                                                 (if (a.exposed) "UNPAIRED ACCESS  " else "") + a.shortLine(),
-                                                color = if (a.exposed) Color(0xFFFF2D55) else Color(0xFF7A7A9A),
+                                                color = if (a.exposed) Pal.c.red else Pal.c.slate,
                                                 fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
                                             )
                                         }
                                         if(char.lastValue.value.isNotEmpty()) {
                                             val displayTxt = if(showHex) "Hex: ${char.lastValue.value}" else "ASCII: ${hexToAsciiSafe(char.lastValue.value)}"
-                                            Text(displayTxt, color = Color(0xFF39FF14), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            Text(displayTxt, color = Pal.c.green, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                     if(char.canRead) SmallAction("READ", Color(0xFF0F61B7), enabled = !busy) {
@@ -1358,7 +1409,7 @@ class MainActivity : ComponentActivity() {
                 Spacer(modifier = Modifier.height(10.dp))
                 val mState = rememberLazyListState()
                 LaunchedEffect(modalLogs.size) { if(modalLogs.isNotEmpty()) mState.animateScrollToItem(modalLogs.size - 1) }
-                Box(modifier = Modifier.fillMaxWidth().weight(0.3f).background(Color(0xFF07070A), RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF1A1A24), RoundedCornerShape(8.dp)).padding(6.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().weight(0.3f).background(Pal.c.console, RoundedCornerShape(8.dp)).border(1.dp, Pal.c.border, RoundedCornerShape(8.dp)).padding(6.dp)) {
                     LazyColumn(state = mState) {
                         items(modalLogs) { l: Pair<String, String> ->
                             Text(text = l.first, color = parseColorSafe(l.second), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
@@ -1405,33 +1456,33 @@ class MainActivity : ComponentActivity() {
 
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = Color(0xFF171721),
-            title = { Text("GATT Access Audit", color = Color.White) },
+            containerColor = Pal.c.surface,
+            title = { Text("GATT Access Audit", color = Pal.c.text) },
             text = {
                 Column {
                     Text(
                         "Tests what each characteristic allows WITHOUT pairing. Run it on an unbonded device; " +
                         "if Android shows a pairing prompt, decline it to keep results unauthenticated.",
-                        color = Color.Gray, fontSize = 11.sp
+                        color = Pal.c.textSecondary, fontSize = 11.sp
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = testRead, onCheckedChange = { testRead = it })
-                        Text("Read readable characteristics", color = Color.White, fontSize = 12.sp)
+                        Text("Read readable characteristics", color = Pal.c.text, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = testSub, onCheckedChange = { testSub = it })
-                        Text("Subscribe / unsubscribe (CCCD)", color = Color.White, fontSize = 12.sp)
+                        Text("Subscribe / unsubscribe (CCCD)", color = Pal.c.text, fontSize = 12.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = echoWrite, onCheckedChange = { echoWrite = it })
-                        Text("Echo-write (writes back the value just read)", color = Color.White, fontSize = 12.sp)
+                        Text("Echo-write (writes back the value just read)", color = Pal.c.text, fontSize = 12.sp)
                     }
                     if (echoWrite) {
                         Text(
                             "Echo-write sends real writes. It only rewrites a value read moments earlier, and never touches " +
                             "write-only characteristics, but some devices act on any write (e.g. trigger commands). Use only on hardware you own.",
-                            color = Color(0xFFFFB000), fontSize = 10.sp
+                            color = Pal.c.amber, fontSize = 10.sp
                         )
                     }
                 }
@@ -1456,8 +1507,8 @@ class MainActivity : ComponentActivity() {
 
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = Color(0xFF171721),
-            title = { Text("GATT Payload", color = Color.White) },
+            containerColor = Pal.c.surface,
+            title = { Text("GATT Payload", color = Pal.c.text) },
             text = {
                 Column {
                     TextField(
@@ -1466,21 +1517,21 @@ class MainActivity : ComponentActivity() {
                         placeholder = { Text("Data payload...") }
                     )
                     if (errorMsg != null) {
-                        Text(errorMsg!!, color = Color(0xFFFC1037), fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+                        Text(errorMsg!!, color = Pal.c.danger, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = isHex, onCheckedChange = { isHex = it; errorMsg = null })
-                        Text("Hex Mode", color = Color.White)
+                        Text("Hex Mode", color = Pal.c.text)
                     }
                     if (char.canWrite && char.canWriteNoResp) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = noResponse, onCheckedChange = { noResponse = it })
-                            Text("Write without response", color = Color.White)
+                            Text("Write without response", color = Pal.c.text)
                         }
                     } else {
-                        Text(if (char.canWrite) "Mode: write with response" else "Mode: write without response", color = Color.Gray, fontSize = 10.sp)
+                        Text(if (char.canWrite) "Mode: write with response" else "Mode: write without response", color = Pal.c.textSecondary, fontSize = 10.sp)
                     }
-                    Text("Single-write limit at current MTU: $maxPayload bytes", color = Color.Gray, fontSize = 10.sp)
+                    Text("Single-write limit at current MTU: $maxPayload bytes", color = Pal.c.textSecondary, fontSize = 10.sp)
                 }
             },
             confirmButton = {
