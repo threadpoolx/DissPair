@@ -1234,6 +1234,14 @@ class MainActivity : ComponentActivity() {
 
                         log("[+] GATT Enumeration Complete. Found ${gatt.services.size} Services.", "39FF14")
 
+                        // Ask for the largest ATT MTU straight away so reads, writes, notifications and the
+                        // audit all use full-size packets. Runs through the op queue like any other request.
+                        scope.launch {
+                            val r = ops.requestMtu(517)
+                            if (r.ok) mtu = r.mtu
+                            log("[MTU] requested 517 -> ${if (r.ok) "negotiated ${r.mtu}" else r.statusName}", if (r.ok) "39FF14" else "FFB000")
+                        }
+
                         gatt.services.forEach { s ->
                             val uuidStr = s.uuid.toString().lowercase()
                             // 16-bit UUIDs live on the standard Bluetooth Base UUID
@@ -1307,11 +1315,6 @@ class MainActivity : ComponentActivity() {
                     // Also covers MTU exchanges started by Android or by the peripheral itself.
                     if (status == 0) scope.launch { mtu = newMtu }
                 }
-
-                override fun onReliableWriteCompleted(gatt: BluetoothGatt, status: Int) {
-                    if (!live()) return
-                    ops.complete(GattOps.key(GattOps.RELIABLE, null), GattResult(status))
-                }
             }
             withContext(Dispatchers.Main) {
                 gattConn = btDevice?.connectGatt(this@MainActivity, false, callback, BluetoothDevice.TRANSPORT_LE)
@@ -1324,7 +1327,7 @@ class MainActivity : ComponentActivity() {
             val btDevice = g.device
             isAuditing = true
             services.forEach { s -> s.characteristics.forEach { it.audit.value = null } }
-            log("[*] GATT access audit started (read=${options.testRead} sub=${options.testSubscribe} echoWrite=${options.echoWrite})", "FFB000")
+            log("[*] GATT access audit started (read=${options.testRead} sub=${options.testSubscribe} write=${options.writeSummary()})", "FFB000")
             auditJob = scope.launch {
                 try {
                     val audit = GattAudit(ops, btDevice, { BleNames.resolve(it) }, { m, c -> log(m, c) })
@@ -1409,13 +1412,6 @@ class MainActivity : ComponentActivity() {
 
                 // --- Toolbar ---
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SmallAction("MTU 517", Color(0xFF0F61B7), enabled = !busy) {
-                        scope.launch {
-                            val r = ops.requestMtu(517)
-                            if (r.ok) mtu = r.mtu
-                            log("[MTU] request 517 -> ${if (r.ok) "negotiated ${r.mtu}" else r.statusName}", if (r.ok) "39FF14" else "FF2D55")
-                        }
-                    }
                     if (isAuditing) {
                         SmallAction("STOP", Color(0xFFB71C1C), enabled = true) { auditJob?.cancel() }
                     } else {
@@ -1516,12 +1512,19 @@ class MainActivity : ComponentActivity() {
         ) { Text(label, fontSize = 9.sp) }
     }
 
+    /** The single write-testing choice shown in the audit dialog, mapped onto the engine's options. */
+    enum class WriteTest(val label: String, val hint: String, val echo: Boolean, val probe: WriteProbe) {
+        OFF("Off", "No writes are sent.", false, WriteProbe.OFF),
+        ECHO("Echo only (safe)", "Readable characteristics: rewrite the value just read. Write-only ones are skipped.", true, WriteProbe.OFF),
+        ECHO_COMMIT("Echo + commit payload", "Write-only ones: really write the payload below.", true, WriteProbe.COMMIT),
+    }
+
     @Composable
     fun AuditOptionsDialog(mtu: Int, onDismiss: () -> Unit, onStart: (AuditOptions) -> Unit) {
         var testRead by remember { mutableStateOf(true) }
         var testSub by remember { mutableStateOf(true) }
-        var echoWrite by remember { mutableStateOf(false) }
-        var probe by remember { mutableStateOf(WriteProbe.OFF) }
+        var writeTest by remember { mutableStateOf(WriteTest.OFF) }
+        val probe = writeTest.probe
         var payloadHex by remember { mutableStateOf("00") }
         val payload = remember(payloadHex) {
             val clean = payloadHex.replace(" ", "")
@@ -1555,21 +1558,15 @@ class MainActivity : ComponentActivity() {
                         Checkbox(checked = testSub, onCheckedChange = { testSub = it })
                         Text("Subscribe / unsubscribe (CCCD)", color = Pal.c.text, fontSize = 12.sp)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = echoWrite, onCheckedChange = { echoWrite = it })
-                        Text("Echo-write readable characteristics (rewrites the value just read)", color = Pal.c.text, fontSize = 12.sp)
-                    }
-
                     Spacer(Modifier.height(8.dp))
-                    Text("WRITE-ONLY / UNREADABLE CHARACTERISTICS", color = Pal.c.green, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    WriteProbe.entries.forEach { m ->
+                    Text("WRITE TEST", color = Pal.c.green, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    WriteTest.entries.forEach { m ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = probe == m, onClick = { probe = m })
-                            Text(when (m) {
-                                WriteProbe.OFF -> "Don't test"
-                                WriteProbe.PREPARE_ONLY -> "Prepare-only (sent, then cancelled; never committed)"
-                                WriteProbe.COMMIT -> "Commit payload (real write)"
-                            }, color = Pal.c.text, fontSize = 12.sp)
+                            RadioButton(selected = writeTest == m, onClick = { writeTest = m })
+                            Column {
+                                Text(m.label, color = Pal.c.text, fontSize = 12.sp)
+                                Text(m.hint, color = Pal.c.textSecondary, fontSize = 9.sp)
+                            }
                         }
                     }
                     if (probe != WriteProbe.OFF) {
@@ -1582,14 +1579,10 @@ class MainActivity : ComponentActivity() {
                                 "longer with-response writes are split into a long write automatically.",
                             color = if (payloadError != null) Pal.c.danger else Pal.c.textSecondary, fontSize = 10.sp)
                     }
-                    if (probe == WriteProbe.PREPARE_ONLY) {
-                        Text("Works only for write-with-response characteristics. If the device checks security only " +
-                                "at commit time, results show as inconclusive.", color = Pal.c.textSecondary, fontSize = 10.sp)
-                    }
-                    if (probe == WriteProbe.COMMIT || echoWrite) {
+                    if (writeTest != WriteTest.OFF) {
                         Text(
-                            (if (probe == WriteProbe.COMMIT) "Commit writes the payload to EVERY writable characteristic, including write-only " +
-                                "command and control points. Expect side effects: commands may run, settings may change, the device may reset. "
+                            (if (probe == WriteProbe.COMMIT) "Readable characteristics are echo-written; every other writable one, including " +
+                                "write-only command and control points, gets the payload. Expect side effects: commands may run, settings may change, the device may reset. "
                             else "Echo-write sends real writes; some devices act on any write. ") +
                             "Use only on authorized test hardware.",
                             color = Pal.c.amber, fontSize = 10.sp
@@ -1599,8 +1592,8 @@ class MainActivity : ComponentActivity() {
             },
             confirmButton = {
                 Button(
-                    enabled = (testRead || testSub || echoWrite || probe != WriteProbe.OFF) && payloadError == null,
-                    onClick = { onStart(AuditOptions(testRead, testSub, echoWrite, probe, payload ?: byteArrayOf(0))) }
+                    enabled = (testRead || testSub || writeTest != WriteTest.OFF) && payloadError == null,
+                    onClick = { onStart(AuditOptions(testRead, testSub, writeTest.echo, probe, payload ?: byteArrayOf(0))) }
                 ) { Text("START") }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL") } }
