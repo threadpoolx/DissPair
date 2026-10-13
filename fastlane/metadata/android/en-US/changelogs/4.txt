@@ -1,0 +1,6 @@
+New in 2.2.0:
+- Advertisement inspector (ADV): decodes advertising data, Apple Continuity, Eddystone, Fast Pair; privacy and tracker checks, interval and RSSI graph
+- GATT: notifications, write-without-response, MTU, named services
+- GATT access audit with optional write probes and exportable report
+- System light/dark theme, new icon
+- Back returns to the main screen
