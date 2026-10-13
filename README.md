@@ -260,14 +260,33 @@ Probes channels **1–15** by default (expandable to **16–30** via the `PROBE 
 
 Tap **ANALYSE** on any BLE device to open the GATT Analysis.
 
-- Establishes a GATT connection and enumerates all services and characteristics
-- Displays service type (**General** for standard 16-bit Bluetooth UUIDs, **Customized** for vendor UUIDs)
+- Establishes a GATT connection (LE transport) and enumerates all services and characteristics
+- Displays service type (**General** for standard 16-bit Bluetooth UUIDs, **Customized** for vendor UUIDs) and full property flags (`R W WnR N I SW B EXT`)
+- All GATT operations go through a serialised queue with timeouts, so rapid actions are never silently dropped by the Android stack
+- ATT error codes are decoded by name (e.g. `INSUFFICIENT_AUTHENTICATION`, `INSUFFICIENT_ENCRYPTION`) instead of raw numbers
 - Per-characteristic actions:
 
 | Action | Description |
 |--------|-------------|
 | **READ** | Reads the current value of the characteristic |
-| **WRITE** | Opens a write dialog supporting ASCII or raw Hex input |
+| **WRITE** | ASCII or raw Hex payload; write-with-response or write-without-response (also shown for write-without-response-only characteristics) |
+| **SUB / UNSUB** | Enables notifications or indications via the CCCD and logs every incoming value with its UUID |
+
+- Toolbar actions:
+
+| Action | Description |
+|--------|-------------|
+| **MTU 517** | Requests the maximum ATT MTU and shows the negotiated value; the write dialog shows the single-write limit |
+| **AUDIT** | Unauthenticated access audit (see below) |
+| **COPY / SHARE** | Exports the last audit report as text |
+
+#### GATT Access Audit
+
+Tests what every characteristic allows **without pairing** and marks each one `OPEN`, `AUTH`, `ENC`, `AUTHZ`, `KEY`, `DENY` or `ERR` for read, subscribe and (optionally) write. Characteristics usable unpaired are flagged in red and summarised in an exportable report.
+
+- **Read** and **subscribe** tests are non-destructive; subscriptions are disabled again after the test.
+- **Echo-write** is off by default. When enabled it only writes back the value it just read, and never writes to write-only characteristics.
+- Run it on an **unbonded** device. If Android shows a pairing prompt mid-audit, decline it; the report flags any bond-state change.
 
 - Toggle **HEX / ASCII** display for all captured values
 
