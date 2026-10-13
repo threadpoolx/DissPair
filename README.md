@@ -272,11 +272,11 @@ Tap **ANALYSE** on any BLE device to open the GATT Analysis.
 | **WRITE** | ASCII or raw Hex payload; write-with-response or write-without-response (also shown for write-without-response-only characteristics) |
 | **SUB / UNSUB** | Enables notifications or indications via the CCCD and logs every incoming value with its UUID |
 
+- The connection automatically requests the largest ATT MTU (517); the negotiated value is shown in the header, and payload limits follow it.
 - Toolbar actions:
 
 | Action | Description |
 |--------|-------------|
-| **MTU 517** | Requests the maximum ATT MTU and shows the negotiated value; the write dialog shows the single-write limit |
 | **AUDIT** | Unauthenticated access audit (see below) |
 | **COPY / SHARE** | Exports the last audit report as text |
 
@@ -285,7 +285,7 @@ Tap **ANALYSE** on any BLE device to open the GATT Analysis.
 Tests what every characteristic allows **without pairing** and marks each one `OPEN`, `AUTH`, `ENC`, `AUTHZ`, `KEY`, `DENY` or `ERR` for read, subscribe and (optionally) write. Characteristics usable unpaired are flagged in red and summarised in an exportable report.
 
 - **Read** and **subscribe** tests are non-destructive; subscriptions are disabled again after the test.
-- **Echo-write** is off by default. When enabled it only writes back the value it just read, and never writes to write-only characteristics.
+- **Write test** is one setting: *Off* (default), *Echo only* (rewrites the value just read on readable characteristics; write-only ones are skipped), or *Echo + commit payload* (write-only ones really get the hex payload you choose).
 - Run it on an **unbonded** device. If Android shows a pairing prompt mid-audit, decline it; the report flags any bond-state change.
 
 - Toggle **HEX / ASCII** display for all captured values

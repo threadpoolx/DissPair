@@ -61,8 +61,6 @@ object GattStatus {
         AUTHORIZATION("Requires authorization", "AUTHZ"),
         KEY_SIZE("Requires stronger key", "KEY"),
         NOT_PERMITTED("Not permitted", "DENY"),
-        /** Prepare Write accepted; the device may still enforce security at commit, so not a confirmed finding. */
-        PREPARED("Prepare accepted, commit unverified", "PREP"),
         ERROR("Error", "ERR"),
         NOT_TESTED("Not tested", "--");
     }

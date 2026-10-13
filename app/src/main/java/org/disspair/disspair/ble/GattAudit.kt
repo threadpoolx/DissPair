@@ -29,8 +29,6 @@ import java.util.Locale
 /** How the audit tests writes on characteristics it can't echo-write (write-only, unreadable). */
 enum class WriteProbe(val label: String) {
     OFF("off"),
-    /** ATT Prepare Write, then cancel. Nothing is committed. */
-    PREPARE_ONLY("prepare-only"),
     /** Really writes [AuditOptions.probePayload]. Can trigger commands or change settings. */
     COMMIT("commit"),
 }
@@ -41,7 +39,16 @@ data class AuditOptions(
     val echoWrite: Boolean = false,
     val writeProbe: WriteProbe = WriteProbe.OFF,
     val probePayload: ByteArray = byteArrayOf(0x00),
-)
+) {
+    /** One-line description of the write test, e.g. "echo+commit(00000000)". */
+    fun writeSummary(): String = buildList {
+        if (echoWrite) add("echo")
+        when (writeProbe) {
+            WriteProbe.OFF -> {}
+            WriteProbe.COMMIT -> add("commit(${probePayload.toHex()})")
+        }
+    }.joinToString("+").ifEmpty { "off" }
+}
 
 data class CharAudit(
     val serviceUuid: String,
@@ -88,10 +95,10 @@ data class AuditReport(
         appendLine("Bonded : ${if (bondedAtStart) "YES - results do NOT reflect unauthenticated access" else "NO (unauthenticated)"}")
         if (bondChangedDuringAudit) appendLine("WARNING: bond state changed during audit (stack-initiated pairing). Re-run unbonded to confirm.")
         appendLine("MTU    : $mtu")
-        appendLine("Tests  : read=${options.testRead} subscribe=${options.testSubscribe} echoWrite=${options.echoWrite} writeProbe=${options.writeProbe.label}" + if (options.writeProbe == WriteProbe.COMMIT) " payload=${options.probePayload.toHex()}" else "")
+        appendLine("Tests  : read=${options.testRead} subscribe=${options.testSubscribe} write=${options.writeSummary()}")
         appendLine("Summary: $exposedCount/${results.size} characteristics usable without pairing")
         appendLine()
-        appendLine("Legend: OPEN=allowed unpaired, PREP=prepare-write accepted but commit unverified, AUTH/ENC/AUTHZ/KEY=security required, DENY=not permitted, ERR=other error, --=not tested")
+        appendLine("Legend: OPEN=allowed unpaired, AUTH/ENC/AUTHZ/KEY=security required, DENY=not permitted, ERR=other error, --=not tested")
         results.groupBy { it.serviceUuid }.forEach { (svc, chars) ->
             appendLine()
             appendLine("Service $svc")
@@ -182,23 +189,7 @@ class GattAudit(
             !writable -> {}
             // 1. Echo-write: rewrite the value just read (no state change). Preferred when possible.
             o.echoWrite && echoValue != null -> a = commitWrite(a, c, echoValue, withResponse)
-            // 2. Prepare-only probe: queue the payload, then cancel. Needs write-with-response.
-            o.writeProbe == WriteProbe.PREPARE_ONLY -> {
-                if (!withResponse) {
-                    a = a.copy(note = joinNote(a.note, "prepare-only needs write-with-response; WnR not probed"))
-                } else {
-                    val r = ops.prepareOnly(c, o.probePayload)
-                    a = when (r.status) {
-                        0x06 -> a.copy(writeStatus = r.status, note = joinNote(a.note, "prepare write not supported: inconclusive"))
-                        // A successful prepare is NOT proof the write would commit: some devices only
-                        // check security at Execute Write. Report it separately from OPEN.
-                        else -> if (r.ok) a.copy(write = GattStatus.Access.PREPARED, writeStatus = r.status,
-                            note = joinNote(a.note, "prepare accepted unpaired, cancelled; commit unverified"))
-                        else a.copy(write = GattStatus.classify(r.status), writeStatus = r.status)
-                    }
-                }
-            }
-            // 3. Commit probe: really write the chosen payload.
+            // 2. Commit probe: really write the chosen payload.
             o.writeProbe == WriteProbe.COMMIT -> a = commitWrite(a, c, o.probePayload, withResponse)
             o.echoWrite -> a = a.copy(note = joinNote(a.note, "write skipped: not readable, no echo value"))
         }
