@@ -292,6 +292,13 @@ Tests what every characteristic allows **without pairing** and marks each one `O
 
 ---
 
+### Appearance
+
+- **Theme:** follows the system light/dark setting by default. Tap the theme icon in the top bar to cycle **System → Light → Dark**; the choice is remembered. In light mode the neon log colours switch to darker shades that stay readable on white.
+- **Icon:** launcher, adaptive (circle/squircle-safe) and in-app icons are generated from `disspair_logo_2.png`.
+
+---
+
 ### System Log
 
 A live scrolling terminal log at the top of the main screen and within each overlay shows all events, discovered targets, errors, and decoded responses in color-coded monospace output.
