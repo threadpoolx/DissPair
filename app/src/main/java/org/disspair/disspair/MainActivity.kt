@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -57,6 +58,9 @@ import org.disspair.disspair.ble.GattProps
 import org.disspair.disspair.ble.GattResult
 import org.disspair.disspair.ble.GattStatus
 import org.disspair.disspair.ble.toHex
+import org.disspair.disspair.ble.BleUuids
+import org.disspair.disspair.gap.AdvInspectorOverlay
+import org.disspair.disspair.gap.AdvStore
 import org.disspair.disspair.ui.DarkColors
 import org.disspair.disspair.ui.LightColors
 import org.disspair.disspair.ui.Pal
@@ -146,8 +150,7 @@ fun getDeviceClassTag(deviceClass: Int?): String {
 }
 
 object BleNames {
-    private val charMap = mapOf("2a00" to "Device Name", "2a29" to "Manufacturer Name")
-    fun resolve(uuid: String) = if (uuid.length >= 8) charMap[uuid.substring(4, 8).lowercase()] ?: "Characteristic" else "Unknown"
+    fun resolve(uuid: String) = BleUuids.name(uuid) ?: "Characteristic"
 }
 
 fun hexToAsciiSafe(hexStr: String): String {
@@ -178,6 +181,9 @@ class MainActivity : ComponentActivity() {
     private var activeAnalysisDevice by mutableStateOf<DeviceItem?>(null)
     private var showRenameDialog by mutableStateOf(false)
     private var themeMode by mutableStateOf(ThemeMode.SYSTEM)
+    private var activeAdvDevice by mutableStateOf<DeviceItem?>(null)
+    /** Every BLE advertisement seen while scanning, per device (GAP inspector). */
+    private val advStore = AdvStore()
 
     private var activeRfcommSocket: BluetoothSocket? = null
     private var activeFloodJob: Job? = null
@@ -221,6 +227,22 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Box(modifier = Modifier.fillMaxSize()) {
                             MainScreen()
+                            activeAdvDevice?.let { device ->
+                                AdvInspectorOverlay(
+                                    mac = device.mac,
+                                    fallbackName = device.name,
+                                    store = advStore,
+                                    scanning = currentScanMode == ScanMode.BLE,
+                                    onClose = { activeAdvDevice = null },
+                                    onCopy = { copyText("DissPair advertisement report", it) },
+                                    onShare = { shareText("DissPair advertisement report - ${device.mac}", it) },
+                                    onAnalyseGatt = {
+                                        if (currentScanMode == ScanMode.BLE) toggleBleScan()
+                                        activeAdvDevice = null
+                                        activeAnalysisDevice = device
+                                    },
+                                )
+                            }
                             activeAnalysisDevice?.let { device ->
                                 if (device.type == "BLE") {
                                     BleAnalysisOverlay(device, onClose = { activeAnalysisDevice = null })
@@ -243,6 +265,21 @@ class MainActivity : ComponentActivity() {
         ThemeMode.SYSTEM -> systemDark
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
+    }
+
+    private fun copyText(label: String, text: String) {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+        logMsg("[+] Copied to clipboard", "39FF14")
+    }
+
+    private fun shareText(subject: String, text: String) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        try { startActivity(Intent.createChooser(send, "Share report")) } catch (e: Exception) { logMsg("[-] Share failed", "FF2D55") }
     }
 
     private fun cycleTheme() {
@@ -401,6 +438,7 @@ class MainActivity : ComponentActivity() {
 
     private val leScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
+            advStore.update(result)
             val device = result.device
             val rssi = result.rssi
             val btClass = device.bluetoothClass?.deviceClass
@@ -464,7 +502,15 @@ class MainActivity : ComponentActivity() {
 
             loadPairedDevices()
 
-            scanner?.startScan(leScanCallback)
+            // Low-latency so advertising intervals can be measured; non-legacy so extended
+            // advertisements (BT 5) are reported too, when the controller supports them.
+            val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bluetoothAdapter?.isLeExtendedAdvertisingSupported == true) {
+                    setLegacy(false)
+                    setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+                }
+            }.build()
+            scanner?.startScan(null, settings, leScanCallback)
             currentScanMode = ScanMode.BLE
             logMsg("BLE Scan started...", "39FF14")
         }
@@ -527,7 +573,7 @@ class MainActivity : ComponentActivity() {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("TARGET DEVICES", color = Pal.c.textMuted, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    IconButton(onClick = { foundDevices.removeAll { it.type != "PAIRED" } }, modifier = Modifier.size(28.dp).padding(start = 4.dp)) {
+                    IconButton(onClick = { foundDevices.removeAll { it.type != "PAIRED" }; advStore.clear() }, modifier = Modifier.size(28.dp).padding(start = 4.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Pal.c.danger, modifier = Modifier.size(16.dp))
                     }
                 }
@@ -553,6 +599,7 @@ class MainActivity : ComponentActivity() {
                             if(currentScanMode != ScanMode.IDLE) { if(currentScanMode == ScanMode.CLASSIC) toggleClassicScan() else toggleBleScan() }
                             activeAnalysisDevice = device
                         },
+                        onAdv = if (device.type == "BLE") ({ activeAdvDevice = device }) else null,
                         onUnpair = {
                             try {
                                 val btDevice = bluetoothAdapter?.getRemoteDevice(device.mac)
@@ -614,7 +661,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun DeviceCard(device: DeviceItem, onAnalyze: () -> Unit, onUnpair: (() -> Unit)? = null) {
+    fun DeviceCard(device: DeviceItem, onAnalyze: () -> Unit, onUnpair: (() -> Unit)? = null, onAdv: (() -> Unit)? = null) {
         Row(modifier = Modifier.fillMaxWidth().background(Pal.c.surface, RoundedCornerShape(10.dp)).padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -636,6 +683,10 @@ class MainActivity : ComponentActivity() {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (device.type == "PAIRED") {
                     Button(onClick = { onUnpair?.invoke() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFC1037)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp), modifier = Modifier.height(32.dp)) { Text("UNPAIR", fontSize = 9.sp) }
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                if (onAdv != null) {
+                    Button(onClick = onAdv, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF008C51)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp), modifier = Modifier.height(32.dp)) { Text("ADV", fontSize = 9.sp) }
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 Button(onClick = onAnalyze, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F61B7)), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp), modifier = Modifier.height(32.dp)) { Text("ANALYSE", fontSize = 9.sp) }
